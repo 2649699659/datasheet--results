@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.env
+*.log
+.DS_Store
+
+# Empty temp directories
+.llm_cache/
+.pdfplumber_cache/
+output_test/
+datasheets_module_single/
+
+# Archive
+archive/
+
+# AI output files
+output/ai_extract/debug/
+output/ai_extract/*.json
+!output/datasheet_extractor_lite_ai.xlsx
+output/datasheet_extractor_lite.xlsx
