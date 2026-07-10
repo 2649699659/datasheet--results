@@ -1,0 +1,14 @@
+# Core dependencies
+pdfplumber>=0.10.0
+pypdf>=3.0.0
+pandas>=2.0.0
+openpyxl>=3.1.0
+PyYAML>=6.0
+python-dotenv>=1.0.0
+
+# Optional: for fuzzy matching
+rapidfuzz>=3.0.0
+
+# Optional: for API calls (if using LLM)
+requests>=2.31.0
+httpx>=0.25.0

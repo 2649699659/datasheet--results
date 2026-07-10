@@ -1,0 +1,304 @@
+# Target Fields Configuration
+# Defines all parameters to extract from datasheets
+
+# Each field has:
+#   id: unique identifier (snake_case)
+#   label: human-readable name
+#   unit: standard unit (empty string if unitless)
+#   aliases: list of common names/symbols found in PDFs
+#   preferred_value: which value to prefer (typ/min/max, default: typ)
+#   condition_keywords: list of keywords that identify this parameter's condition
+#   notes: optional additional information
+
+fields:
+
+  # ============ Basic Info ============
+  - id: manufacturer
+    label: Manufacturer
+    unit: ""
+    aliases: ["manufacturer", "brand", "company"]
+    preferred_value: typ
+    notes: "Company name"
+
+  - id: part_number
+    label: Part Number
+    unit: ""
+    aliases: ["part number", "model", "type", "part #", "model no."]
+    preferred_value: typ
+    notes: "Full part number as printed"
+
+  - id: module_type
+    label: Module Type
+    unit: ""
+    aliases: ["module type", "package", "configuration", "topology"]
+    preferred_value: typ
+    notes: "e.g. SiC MOSFET Module, IGBT Module"
+
+  # ============ Ratings ============
+  - id: voltage_rating
+    label: Voltage Rating
+    unit: V
+    aliases: ["voltage", "VDS", "VDSs", "breakdown voltage", "collector-emitter voltage"]
+    preferred_value: max
+    condition_keywords: ["VDSs", "VDS(sus)", "VCES", "VCE"]
+    notes: "Maximum drain-source or collector-emitter voltage"
+
+  - id: current_rating
+    label: Current Rating
+    unit: A
+    aliases: ["current", "ID", "IC", "continuous current", "rated current"]
+    preferred_value: typ
+    condition_keywords: ["TC", "TJ", "@", "continuous"]
+    notes: "Continuous current at specified temperature"
+
+  # ============ RDS(on) ============
+  - id: rds_on_25c
+    label: RDS(on) @25°C
+    unit: mΩ
+    aliases: ["RDS(on)", "RDS(on)@25°C", "RDS(on) typ", "on-resistance", "Ron"]
+    preferred_value: typ
+    condition_keywords: ["25°C", "TC=25", "TJ=25", "VGS=15V", "VGS=18V"]
+    notes: "Drain-source on-resistance at 25°C"
+
+  - id: rds_on_150c
+    label: RDS(on) @150°C
+    unit: mΩ
+    aliases: ["RDS(on)", "RDS(on)@150°C", "on-resistance"]
+    preferred_value: typ
+    condition_keywords: ["150°C", "TC=150", "TJ=150", "VGS=15V", "VGS=18V"]
+    notes: "Drain-source on-resistance at 150°C"
+
+  # ============ Threshold Voltage ============
+  - id: vgs_th
+    label: VGS(th)
+    unit: V
+    aliases: ["Vth", "VGS(th)", "gate threshold voltage", "threshold voltage"]
+    preferred_value: typ
+    condition_keywords: ["VGS", "ID", "@"]
+    notes: "Gate threshold voltage, typically at ID=specified mA"
+
+  # ============ Capacitances ============
+  - id: ciss
+    label: Ciss
+    unit: pF
+    aliases: ["Ciss", "input capacitance", "C11", "C12"]
+    preferred_value: typ
+    condition_keywords: ["VDS", "VGS", "f=", "MHz"]
+    notes: "Input capacitance (Cgd + Cgs)"
+
+  - id: coss
+    label: Coss
+    unit: pF
+    aliases: ["Coss", "output capacitance", "C22", "C23"]
+    preferred_value: typ
+    condition_keywords: ["VDS", "VGS", "f=", "MHz"]
+    notes: "Output capacitance (Cds + Cgd)"
+
+  - id: crss
+    label: Crss
+    unit: pF
+    aliases: ["Crss", "reverse transfer capacitance", "C12", "C23"]
+    preferred_value: typ
+    condition_keywords: ["VDS", "VGS", "f=", "MHz"]
+    notes: "Reverse transfer capacitance (Cgd)"
+
+  # ============ Gate Charge ============
+  - id: qg
+    label: QG (Total Gate Charge)
+    unit: nC
+    aliases: ["QG", "Qg", "total gate charge", "gate charge"]
+    preferred_value: typ
+    condition_keywords: ["VGS", "VDS", "ID"]
+    notes: "Total gate charge"
+
+  - id: qgs
+    label: QGS (Gate-Source Charge)
+    unit: nC
+    aliases: ["Qgs", "QGS", "gate-source charge"]
+    preferred_value: typ
+    condition_keywords: ["VGS", "VDS", "ID"]
+    notes: "Gate-source charge"
+
+  - id: qgd
+    label: QGD (Gate-Drain Charge)
+    unit: nC
+    aliases: ["Qgd", "QGD", "gate-drain charge", "Miller charge"]
+    preferred_value: typ
+    condition_keywords: ["VGS", "VDS", "ID"]
+    notes: "Gate-drain (Miller) charge"
+
+  # ============ Switching Energies ============
+  - id: eon
+    label: Eon (Turn-On Energy)
+    unit: mJ
+    aliases: ["Eon", "EON", "turn-on energy", "switching energy on"]
+    preferred_value: typ
+    condition_keywords: ["VDS", "ID", "RG", "150°C", "25°C"]
+    notes: "Turn-on switching energy"
+
+  - id: eoff
+    label: Eoff (Turn-Off Energy)
+    unit: mJ
+    aliases: ["Eoff", "EOFF", "turn-off energy", "switching energy off"]
+    preferred_value: typ
+    condition_keywords: ["VDS", "ID", "RG", "150°C", "25°C"]
+    notes: "Turn-off switching energy"
+
+  # ============ Reverse Recovery ============
+  - id: trr
+    label: trr (Reverse Recovery Time)
+    unit: ns
+    aliases: ["trr", "trr", "reverse recovery time", "t_rr"]
+    preferred_value: typ
+    condition_keywords: ["ID", "IF", "dIF/dt", "150°C", "25°C"]
+    notes: "Body diode reverse recovery time"
+
+  - id: qrr
+    label: QRR (Reverse Recovery Charge)
+    unit: μC
+    aliases: ["Qrr", "QRR", "reverse recovery charge"]
+    preferred_value: typ
+    condition_keywords: ["ID", "IF", "dIF/dt", "150°C", "25°C"]
+    notes: "Body diode reverse recovery charge"
+
+  - id: irrm
+    label: IRRM (Reverse Recovery Current)
+    unit: A
+    aliases: ["IRRM", "Irrm", "peak reverse recovery current"]
+    preferred_value: typ
+    condition_keywords: ["ID", "IF", "dIF/dt", "150°C", "25°C"]
+    notes: "Peak reverse recovery current"
+
+  - id: err
+    label: Err (Reverse Recovery Energy)
+    unit: mJ
+    aliases: ["Err", "ERR", "reverse recovery energy"]
+    preferred_value: typ
+    condition_keywords: ["ID", "IF", "dIF/dt", "150°C", "25°C"]
+    notes: "Reverse recovery energy"
+
+  # ============ Thermal ============
+  - id: rth_jc
+    label: Rth JC (Junction-to-Case)
+    unit: °C/W
+    aliases: ["Rth JC", "Rth(j-c)", "thermal resistance junction-case", "Rth"]
+    preferred_value: typ
+    notes: "Thermal resistance from junction to case"
+
+  - id: rth_jh
+    label: Rth JH (Junction-to-Heat sink)
+    unit: °C/W
+    aliases: ["Rth JH", "Rth(j-h)", "thermal resistance junction-heatsink"]
+    preferred_value: typ
+    notes: "Thermal resistance from junction to heatsink"
+
+  - id: junction_temperature
+    label: Junction Temperature
+    unit: °C
+    aliases: ["TJ", "Tj", "junction temp", "operating temperature"]
+    preferred_value: max
+    condition_keywords: ["min", "max"]
+    notes: "Operating junction temperature range"
+
+  # ============ Stray Inductance ============
+  - id: lstray
+    label: Lstray (Stray Inductance)
+    unit: nH
+    aliases: ["Lstray", "Lstray", "stray inductance", "commutation inductance"]
+    preferred_value: typ
+    notes: "Module stray inductance"
+
+  # ============ Mechanical ============
+  - id: weight
+    label: Weight
+    unit: g
+    aliases: ["weight", "mass", "kg"]
+    preferred_value: typ
+    notes: "Module weight"
+
+  - id: isol
+    label: Visol (Isolation Voltage)
+    unit: V
+    aliases: ["Visol", "isolation voltage", "Viso", "dielectric strength", "isolation"]
+    preferred_value: min
+    condition_keywords: ["AC", "DC", "rms"]
+    notes: "Isolation voltage rating"
+
+  - id: clearance_tt
+    label: Clearance T-T (Terminal to Terminal)
+    unit: mm
+    aliases: ["clearance", "clearance terminal", "terminal clearance"]
+    preferred_value: min
+    condition_keywords: ["T-T", "terminal to terminal", "terminal-terminal"]
+    notes: "Clearance between terminals"
+
+  - id: clearance_tb
+    label: Clearance T-B (Terminal to Baseplate)
+    unit: mm
+    aliases: ["clearance", "clearance baseplate", "baseplate clearance"]
+    preferred_value: min
+    condition_keywords: ["T-B", "terminal to baseplate", "terminal-baseplate", "baseplate"]
+    notes: "Clearance between terminal and baseplate"
+
+  - id: creepage_tt
+    label: Creepage T-T (Terminal to Terminal)
+    unit: mm
+    aliases: ["creepage", "creepage terminal", "terminal creepage"]
+    preferred_value: min
+    condition_keywords: ["T-T", "terminal to terminal", "terminal-terminal"]
+    notes: "Creepage between terminals"
+
+  - id: creepage_tb
+    label: Creepage T-B (Terminal to Baseplate)
+    unit: mm
+    aliases: ["creepage", "creepage baseplate", "baseplate creepage"]
+    preferred_value: min
+    condition_keywords: ["T-B", "terminal to baseplate", "terminal-baseplate", "baseplate"]
+    notes: "Creepage between terminal and baseplate"
+
+
+# Unit whitelist - valid units for this project
+units:
+  - V      # Volt
+  - mV     # Millivolt
+  - kV     # Kilovolt
+  - A      # Ampere
+  - mA     # Milliampere
+  - μA     # Microampere (use unicode, not u)
+  - nA     # Nanoampere
+  - kA     # Kiloampere
+  - Ω      # Ohm
+  - mΩ     # Milliohm
+  - kΩ     # Kilohm
+  - MΩ     # Megohm
+  - F      # Farad
+  - pF     # Picofarad
+  - nF     # Nanofarad
+  - μF     # Microfarad (use unicode, not u)
+  - W      # Watt
+  - mW     # Milliwatt
+  - kW     # Kilowatt
+  - J      # Joule
+  - mJ     # Millijoule
+  - μJ     # Microjoule (use unicode, not u)
+  - °C/W   # Thermal resistance
+  - °C     # Temperature
+  - ns     # Nanosecond
+  - μs     # Microsecond (use unicode, not u)
+  - ms     # Millisecond
+  - nH     # Nanohenry
+  - μH     # Microhenry (use unicode, not u)
+  - mH     # Millihenry
+  - nC     # Nanocoulomb
+  - pC     # Picocoulomb
+  - μC     # Microcoulomb (use unicode, not u)
+  - MHz    # Megahertz
+  - kHz    # Kilohertz
+  - Hz     # Hertz
+  - mm     # Millimeter
+  - cm     # Centimeter
+  - μm     # Micrometer (use unicode, not u)
+  - nm     # Nanometer
+  - g      # Gram
+  - kg     # Kilogram
+  - N-m    # Newton-meter (torque)
