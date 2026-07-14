@@ -481,8 +481,17 @@ def main():
                     val_str = ", ".join(val_parts) if val_parts else "-"
                     print(f"      - {f['field_id']}: {val_str} {p.get('original_unit', '') if p else ''} (score={f['selector_score']})")
     
-    print("\nNOTE: This is Step 6.1 - Final Selector v1 (document-based).")
-    print("      No unit conversion, no Excel generated yet.")
+    # Step 7: Write Excel report
+    print("\nStep 7: Writing Excel report...")
+    
+    from utils.excel_writer import write_excel_report
+    write_excel_report(selection_result, str(output_path))
+    print(f"  Excel saved to: {output_path}")
+    
+    print("\nNOTE: This is Step 7 - Excel Writer v0.")
+    print("      Final Comparison sheet has final_candidate fields only.")
+    print("      review_needed / blocked / missing are in separate sheets.")
+    print("      Current: no unit conversion, no LLM calls.")
     
     return 0
 

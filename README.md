@@ -8,9 +8,9 @@
 
 ## 项目阶段
 
-**当前阶段：Step 6.1 - Final Selector Debug + Multi-PDF Isolation**
+**当前阶段：Step 7 - Excel Writer v0**
 
-此阶段目标是实现 Final Selector v1（按 document_id 分组），完成参数选择逻辑，输出为 debug JSON 和 audit Markdown 文件。
+此阶段目标是实现 Excel Writer v0，从 Final Selector v1 的 document-based 选择结果生成 final_comparison.xlsx。Final Comparison sheet 只放 final_candidate，review_needed / blocked 进入独立 sheet。
 
 ### 当前生成的输出文件
 
@@ -23,13 +23,14 @@
 | `output/value_parse_audit.md` | 值解析 audit 报告 |
 | `output/selected_params_debug.json` | Final Selector 选择结果 (document-based) |
 | `output/selector_audit.md` | Final Selector audit 报告 |
+| `output/final_comparison.xlsx` | **主输出** - Final Comparison / Review Needed / Blocked / Source Evidence 4 sheets |
 
 ### 后续阶段目标
 
-- **Step 7+**: Excel 输出 (final_comparison.xlsx)
+- **Step 7+**: Excel 增强（多 PDF 对比、样式优化、人工验收流程）
 - **Future**: LLM 增强、metadata 提取
 
-当前**不生成** Excel 文件。Excel 输出是后续阶段目标。
+当前 Excel Writer v0 已实现，可生成 final_comparison.xlsx。
 
 ## 快速开始
 
@@ -132,7 +133,7 @@ datasheet-extractor-rebuild/
 
 ## 不做什么 (当前阶段禁止)
 
-- ❌ **不生成 Excel** (后续阶段目标)
+- ❌ ~~不生成 Excel~~ (已实现 Step 7)
 - ❌ 不做 Web UI / Docker
 - ❌ 不做 OCR
 - ❌ 不做 LangChain / LlamaIndex
