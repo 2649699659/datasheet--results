@@ -8,9 +8,9 @@
 
 ## 项目阶段
 
-**当前阶段：Step 7 - Excel Writer v0**
+**当前阶段：Step 7.4 - Excel Writer v0 (Condition Display)**
 
-此阶段目标是实现 Excel Writer v0，从 Final Selector v1 的 document-based 选择结果生成 final_comparison.xlsx。Final Comparison sheet 只放 final_candidate，review_needed / blocked 进入独立 sheet。
+此阶段在 Excel Writer v0 基础上增加条件列显示，从 source_text 提取并规范化 VDS、VGS、ID、TC、Load、R 等条件参数。Final Comparison sheet 有 per-document 的 Value / Condition / Page 三列，Review Needed / Blocked / Source Evidence 均有 Condition 列。
 
 ### 当前生成的输出文件
 
@@ -23,11 +23,11 @@
 | `output/value_parse_audit.md` | 值解析 audit 报告 |
 | `output/selected_params_debug.json` | Final Selector 选择结果 (document-based) |
 | `output/selector_audit.md` | Final Selector audit 报告 |
-| `output/final_comparison.xlsx` | **主输出** - Final Comparison / Review Needed / Blocked / Source Evidence 4 sheets |
+| `output/final_comparison.xlsx` | **主输出** - Final Comparison / Review Needed / Blocked / Source Evidence 4 sheets（含 Condition 列） |
 
 ### 后续阶段目标
 
-- **Step 7+**: Excel 增强（多 PDF 对比、样式优化、人工验收流程）
+- **Step 7.5+**: Excel 增强（多 PDF 对比、样式优化、人工验收流程）
 - **Future**: LLM 增强、metadata 提取
 
 当前 Excel Writer v0 已实现，可生成 final_comparison.xlsx。
@@ -60,7 +60,7 @@ python3 main.py --test-units
 python3 main.py --pdf tests/sample_datasheets/ASC300N1200ME3.pdf --output output/final_comparison.xlsx
 ```
 
-注意：当前即使指定 `--output output/final_comparison.xlsx` 也不会生成 Excel，只会生成 debug JSON/MD 文件。
+注意：指定 `--output output/final_comparison.xlsx` 会生成 Excel（Step 7+ 已实现）。
 
 ## 项目结构
 
