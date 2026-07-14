@@ -429,6 +429,23 @@ def _classify_field(
         return result
 
     # =======================================================================
+    # Field-specific safety checks (Step 7.2: false-positive hardening)
+    # =======================================================================
+    field_check = _validate_field_specific_final_candidate(field_id, best_param, source_text)
+    if not field_check[0]:  # cannot enter final
+        blockers = field_check[1]
+        result["selection_status"] = "review_needed"
+        result["selector_score"] = best_score
+        result["selector_reason"] = "; ".join(blockers)
+        result["selector_warnings"] = best_soft.copy() + blockers
+        result["selected_param"] = best_param
+        result["review_params"] = review_params
+        result["blocked_params"] = blocked_params
+        result["review_params_count"] = len(review_params)
+        result["blocked_params_count"] = len(blocked_params)
+        return result
+
+    # =======================================================================
     # Best param passes all basic checks
     # Score-based final vs review
     # =======================================================================
@@ -455,6 +472,114 @@ def _classify_field(
         result["blocked_params_count"] = len(blocked_params)
 
     return result
+
+
+def _validate_field_specific_final_candidate(
+    field_id: str,
+    param: Dict[str, Any],
+    source_text: str,
+) -> Tuple[bool, List[str]]:
+    """
+    Field-specific safety checks to prevent false positives.
+    Step 7.2: Harden rds_on, eon/eoff/err, junction_temperature.
+
+    Returns:
+        (can_enter_final: bool, blockers_or_reasons: List[str])
+        If can_enter_final is False, the field should be review_needed.
+    """
+    blockers: List[str] = []
+
+    # ------------------------------------------------------------------
+    # RDS(on) temperature condition checks
+    # ------------------------------------------------------------------
+    if field_id in ("rds_on_25c", "rds_on_150c"):
+        # Normalize text: remove ALL non-alphanumeric chars except digits/letters
+        # This handles any degree-variant Unicode (U+00B0, U+2103, U+F0B0, etc.)
+        text_norm = source_text.lower()
+        # Remove spaces first
+        text_norm = text_norm.replace(" ", "")
+        # Remove any non-ASCII degree-like characters (U+00B0, U+2103, U+F0B0, etc.)
+        text_norm = "".join(
+            c if (c.isalnum() and ord(c) < 128) or c.isdigit()
+            else ""
+            for c in text_norm
+        )
+        condition = (param.get("condition") or "").lower()
+
+        if field_id == "rds_on_25c":
+            # Must have 25°C in source_text or condition
+            # After normalization: "25c", "tc25", "tj25", "t25"
+            temp_25 = any(t in text_norm or t in condition
+                          for t in ["25c", "tc25", "tj25", "t25"])
+            if not temp_25:
+                blockers.append("rds_on_25c_missing_25c_temperature_condition")
+
+        elif field_id == "rds_on_150c":
+            # Must have 150°C in source_text or condition
+            temp_150 = any(t in text_norm or t in condition
+                          for t in ["150c", "tc150", "tj150", "t150"])
+            if not temp_150:
+                blockers.append("rds_on_150c_missing_150c_temperature_condition")
+
+    # ------------------------------------------------------------------
+    # Eon / Eoff / Err energy unit checks
+    # ------------------------------------------------------------------
+    if field_id in ("eon", "eoff", "err"):
+        unit = (param.get("original_unit") or "").strip()
+        text_lower = source_text.lower()
+
+        # Must have an energy unit
+        energy_units = {"mj", "μj", "uj", "j", "kj"}
+        if unit.lower() not in energy_units:
+            blockers.append(f"energy_field_unit_missing_or_wrong")
+
+        # Check source text semantics for eon/eoff
+        if field_id in ("eon", "eoff"):
+            if "rds" in text_lower or "static" in text_lower or "drain-source on resistance" in text_lower:
+                blockers.append("eon_selected_rds_on_row_instead_of_energy_row")
+            # Semantic: must contain energy-related terms
+            energy_terms = {"turn-on", "turn-off", "switching energy", "e_on", "e_off"}
+            if field_id == "eon" and not any(t in text_lower for t in energy_terms):
+                blockers.append("eon_source_text_not_energy_semantics")
+            if field_id == "eoff" and not any(t in text_lower for t in energy_terms):
+                blockers.append("eoff_source_text_not_energy_semantics")
+
+        # Check err energy semantics
+        if field_id == "err":
+            recovery_terms = {"reverse recovery", "recovery energy", "err", "e_rr"}
+            if not any(t in text_lower for t in recovery_terms):
+                blockers.append("err_source_text_not_recovery_energy_semantics")
+
+    # ------------------------------------------------------------------
+    # Junction_temperature: must NOT be from figure/axis
+    # ------------------------------------------------------------------
+    if field_id == "junction_temperature":
+        text_lower = source_text.lower()
+        # Reject if source looks like a figure axis, chart label, or curve caption
+        figure_indicators = [
+            "figure", "fig.", "fig ", "chart", "plot",
+            " vs. ", " vs ", "axis", "temperature, t",
+            "derating", "curve", "normalized",
+        ]
+        if any(ind in text_lower for ind in figure_indicators):
+            blockers.append("junction_temperature_from_figure_axis_not_table_row")
+
+    # ------------------------------------------------------------------
+    # Err: must NOT be from figure/axis
+    # ------------------------------------------------------------------
+    if field_id == "err":
+        text_lower = source_text.lower()
+        figure_indicators = [
+            "figure", "fig.", "fig ", "chart", "plot",
+            " vs. ", " vs ", "axis", "drain-source voltage",
+        ]
+        # More specific: err value 600 from page 4 had voltage axis text
+        if any(ind in text_lower for ind in figure_indicators):
+            blockers.append("err_from_figure_axis_rejected")
+
+    if blockers:
+        return (False, blockers)
+    return (True, [])
 
 
 # =============================================================================
