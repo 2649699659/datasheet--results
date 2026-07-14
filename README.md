@@ -8,7 +8,7 @@
 
 ## 项目阶段
 
-**当前阶段：Step 7.4 - Excel Writer v0 (Condition Display)**
+**当前阶段：Step 7.5 - Excel Writer v0 (Condition Fidelity)**
 
 此阶段在 Excel Writer v0 基础上增加条件列显示，从 source_text 提取并规范化 VDS、VGS、ID、TC、Load、R 等条件参数。Final Comparison sheet 有 per-document 的 Value / Condition / Page 三列，Review Needed / Blocked / Source Evidence 均有 Condition 列。
 
