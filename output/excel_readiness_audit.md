@@ -20,13 +20,13 @@
 
 | Field ID | parse_quality | Issues |
 |----------|---------------|--------|
-| ciss | medium, low | no_reliable_header |
+| ciss | low, medium | no_reliable_header |
 | clearance_tt | low | no_reliable_header |
 | coss | low | no_reliable_header |
 | creepage_tt | low | no_reliable_header |
-| crss | medium, low | no_reliable_header |
-| eoff | medium, low | no_reliable_header |
-| eon | medium, low | no_reliable_header |
+| crss | low, medium | no_reliable_header |
+| eoff | low, medium | no_reliable_header |
+| eon | low, medium | no_reliable_header |
 | irrm | low | no_reliable_header |
 | isol | low | no_reliable_header |
 | junction_temperature | low, high | no_reliable_header |
@@ -36,10 +36,10 @@
 | qgd | low | no_reliable_header |
 | qgs | low | no_reliable_header |
 | qrr | low | no_reliable_header |
-| rds_on_150c | medium, low | no_reliable_header |
-| rds_on_25c | medium, low | no_reliable_header |
+| rds_on_150c | low, medium | no_reliable_header |
+| rds_on_25c | low, medium | no_reliable_header |
 | rth_jh | low | no_reliable_header |
-| trr | medium, low | no_reliable_header |
+| trr | low, medium | no_reliable_header |
 | vgs_th | low, high | - |
 | weight | medium | - |
 

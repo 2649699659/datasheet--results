@@ -9,7 +9,10 @@ Sheets:
     3. Blocked - blocked fields with danger reasons + Condition
     4. Source Evidence - source text for all non-missing selections + Condition
 
-Step 7.4: Added Condition column to all sheets, Value/Condition/Page per-document layout.
+Step 7.5: Condition fidelity fix - preserve original key names and units from datasheet.
+- Split key normalization: V GS → VGS, I D → ID, T C → TC, R G → RG
+- Unit preservation: TC=25°C, ID=150A, VGS=18V, Load=50µH
+- Specific keys before generic: VGS before V, ID before I, TC before T, RG(ext) before R
 """
 
 import re
@@ -21,67 +24,290 @@ from openpyxl.utils import get_column_letter
 
 
 # =============================================================================
-# Helper Functions
+# Helper Functions - Condition Extraction (Step 7.5)
 # =============================================================================
 
-def _normalize_degrees(text: str) -> str:
-    """Normalize degree symbol variants to standard °C."""
+# ------------------------------------------------------------------
+# Step 1: Text Normalization (before regex matching)
+# ------------------------------------------------------------------
+
+def _normalize_for_condition(text: str) -> str:
+    """
+    Normalize raw source text for condition extraction.
+    
+    Operations (in order):
+    1. Replace degree variants → °C
+    2. Replace micro sign → μ
+    3. Fix split keys: V GS → VGS, V DS → VDS, I D → ID, T C → TC, R G → RG
+    4. Normalize spaces around =
+    5. Collapse multiple spaces
+    
+    Note: does NOT change numerical values.
+    """
     if not text:
         return text
-    # Replace various degree-like characters with standard °
-    for variant in ("\u00b0", "\u2070", "\u00b2", "\u33f2", "\uf0b0", "\u2103", "\u33f1"):
-        text = text.replace(variant, "\u00b0")
-    # Normalize µ to μ
-    text = text.replace("\u00b5", "\u03bc")  # micro sign → greek mu
-    text = text.replace("\u03bc", "\u03bc")  # already greek mu
-    return text
+
+    t = text
+
+    # 1. Degree character normalization
+    for deg in ("\u00b0", "\u2070", "\u2103", "\u33f1", "\uf0b0", "\u33f2", "\u00b2"):
+        t = t.replace(deg, "\u00b0")
+    # Handle ℃ (U+2103), ˚C (U+02DA + C), etc.
+    t = re.sub(r"([\u2103\u3303])\s*C", "\u00b0C", t)
+    t = re.sub(r"([\u00b0])\s*C", "\u00b0C", t)
+    t = re.sub(r"([\u2070])\s*C", "\u00b0C", t)
+    # Replace any remaining ˚ (U+02DA) with °
+    t = t.replace("\u02da", "\u00b0")
+    t = t.replace("\u00bf", "")  # Remove ¿ rogue char
+
+    # 2. Micro sign normalization
+    t = t.replace("\u00b5", "\u03bc")  # micro sign → greek mu
+
+    # 3. Split key normalization (datasheet PDF extraction artifact)
+    # These join single-letter subscripts that get split during PDF text extraction
+    split_fixes = [
+        (r"\bV\s+G\s+S\b", "VGS"),
+        (r"\bV\s+D\s+S\b", "VDS"),
+        (r"\bV\s+D\s+D\b", "VDD"),
+        (r"\bV\s+R\b", "VR"),
+        (r"\bV\s+A\s+C\b", "VAC"),
+        (r"\bV\s+F\b", "VF"),
+        (r"\bI\s+D\b", "ID"),
+        (r"\bI\s+F\b", "IF"),
+        (r"\bI\s+S\b", "IS"),
+        (r"\bI\s+G\s+S\s+S\b", "IGSS"),
+        (r"\bI\s+D\s+S\s+S\b", "IDSS"),
+        (r"\bI\s+R\s+M\b", "IRM"),
+        (r"\bI\s+R\s+R\s+M\b", "IRRM"),
+        (r"\bT\s+C\b", "TC"),
+        (r"\bT\s+J\b", "TJ"),
+        # R G(ext) → RG(ext): R G (ext) → RG(ext)
+        (r"\bR\s+G\s*\(\s*ext\s*\)\s*\(", "RG(ext)("),
+        (r"\bR\s+G\b", "RG"),
+        # Load: L OA D → Load
+        (r"\bL\s+O\s+A\s+D\b", "Load"),
+        (r"\bL\s+O\s+A\s+D(?:\s*\(\s*ext\s*\))", "Load"),
+    ]
+    for pattern, replacement in split_fixes:
+        t = re.sub(pattern, replacement, t, flags=re.IGNORECASE)
+
+    # 4. Normalize spaces around = (key=value without extra spaces)
+    # "V =18V" → "V=18V", "VGS =18V" → "VGS=18V"
+    t = re.sub(r"(\w)\s*=\s*", r"\1=", t)
+
+    # 5. Collapse multiple spaces
+    t = re.sub(r" {2,}", " ", t)
+    t = t.strip()
+
+    return t
 
 
-# Condition extraction: (compiled_regex, key_name_or_static)
-# Static strings: use as-is (condition keyword)
-# Key names (str, non-static): capture VALUE via group(1), output key=value
-# Static keyword list for disambiguation:
-_STATIC_KEYWORDS = frozenset(["Terminal to Terminal", "Terminal to Baseplate", "VDS=VGS"])
+# ------------------------------------------------------------------
+# Step 2: Key Extraction Patterns (ordered by specificity)
+# ------------------------------------------------------------------
 
-_DEGREE_CHARS = r"\u00b0|\u2070|\u2103|\u33f1|\uf0b0"  # standard °, ⁰, ℃, ³⁄₂, CJK ˚
+# Each pattern: (key_name, compiled_regex, unit_suffix)
+# - key_name: canonical display name (e.g., "VGS", "ID", "TC")
+# - compiled_regex: MUST have ONE capture group = the numeric value
+# - unit_suffix: string to append after the captured value (e.g., "V", "A", "°C", "Ω", "µH")
+#
+# IMPORTANT: The character class for numeric values must include "+" for signed values like "-5/+18"
+# Pattern: [-\d./+]+ NOT [-\d./]+
+#
+# The unit-matching part (\s*V or \s*A) uses \s* (zero or more spaces) before the unit letter
+# to handle both "value V" (with space) and "valueV" (without space).
+#
+# Word boundary \b is used at the start of key names to prevent partial matches.
+# Negative lookahead (?![A-Za-z]) after the unit prevents matching when unit is followed by letters.
 
-_CONDITION_PATTERNS = [
-    # Static keywords
-    (re.compile(r"Terminal\s+to\s+Terminal", re.IGNORECASE), "Terminal to Terminal"),
-    (re.compile(r"Terminal\s+to\s+Baseplate", re.IGNORECASE), "Terminal to Baseplate"),
-    # VDS=VGS style (letter=letter, no numeric value) — VGS(th) specific
-    (re.compile(r"V\s*=\s*V\s*;", re.IGNORECASE), "VDS=VGS"),
-    # Temperature with degree variants (no space required before degree/C)
-    (re.compile(rf"TC\s*=\s*([-\d.]+)\s*(?:{_DEGREE_CHARS}|[Cc]|degrees?\s+C)", re.IGNORECASE), "TC"),
-    (re.compile(rf"TJ\s*=\s*([-\d.]+)\s*(?:{_DEGREE_CHARS}|[Cc]|degrees?\s+C)", re.IGNORECASE), "TJ"),
-    (re.compile(rf"Tj\s*=\s*([-\d.]+)\s*(?:{_DEGREE_CHARS}|[Cc]|degrees?\s+C)", re.IGNORECASE), "TJ"),
-    (re.compile(rf"T\s*=\s*([-\d.]+)\s*(?:{_DEGREE_CHARS}|[Cc]|degrees?\s+C)", re.IGNORECASE), "T"),
-    # Load (inductor energy test)
-    (re.compile(r"Load\s*=\s*([\d.]+)\s*(?:\u03bc|mu)?\s*H", re.IGNORECASE), "Load"),
-    # RG / R (gate resistance / load resistance)
-    (re.compile(r"RG\(ext\)\s*=\s*([\d.]+)\s*(?:\u03a9|ohm)", re.IGNORECASE), "RG(ext)"),
-    (re.compile(r"RG\s*=\s*([\d.]+)\s*(?:\u03a9|ohm)", re.IGNORECASE), "RG"),
-    (re.compile(r"R\s*=\s*([\d.]+)\s*(?:\u03a9|ohm)", re.IGNORECASE), "R"),
-    # Frequency
-    (re.compile(r"f\s*=\s*([\d.]+)\s*Hz", re.IGNORECASE), "f"),
-    # Voltage (specific keys first, then general)
-    (re.compile(r"VGS\s*=\s*([-\d./]+)\s*V", re.IGNORECASE), "VGS"),
-    (re.compile(r"VDS\s*=\s*([-\d./]+)\s*V", re.IGNORECASE), "VDS"),
-    (re.compile(r"VDD\s*=\s*([-\d./]+)\s*V", re.IGNORECASE), "VDD"),
-    (re.compile(r"VR\s*=\s*([-\d./]+)\s*V", re.IGNORECASE), "VR"),
-    (re.compile(r"\bV\s*=\s*([-\d./]+)\s*V\b", re.IGNORECASE), "V"),
-    # Current (specific keys first)
-    (re.compile(r"ID\s*=\s*([-\d.]+)\s*mA", re.IGNORECASE), "ID"),
-    (re.compile(r"IF\s*=\s*([-\d.]+)\s*mA", re.IGNORECASE), "IF"),
-    (re.compile(r"IRM\s*=\s*([-\d.]+)\s*mA", re.IGNORECASE), "IRM"),
-    (re.compile(r"IR\s*=\s*([-\d.]+)\s*mA", re.IGNORECASE), "IR"),
-    (re.compile(r"I\s*=\s*([-\d.]+)\s*mA", re.IGNORECASE), "I"),
-    # Without mA prefix (pure A)
-    (re.compile(r"ID\s*=\s*([-\d.]+)\s*A", re.IGNORECASE), "ID"),
-    (re.compile(r"IF\s*=\s*([-\d.]+)\s*A", re.IGNORECASE), "IF"),
-    (re.compile(r"IRM?\s*=\s*([-\d.]+)\s*A", re.IGNORECASE), "IRM"),
-    (re.compile(r"I\s*=\s*([-\d.]+)\s*A", re.IGNORECASE), "I"),
+class _CondPattern:
+    __slots__ = ('key', 'pattern', 'unit')
+    def __init__(self, key: str, pattern: str, unit: str = ""):
+        self.key = key
+        self.pattern = re.compile(pattern, re.IGNORECASE)
+        self.unit = unit
+
+
+# Ordered by specificity: specific keys before generic keys.
+# Generic keys (V, I, T, R, L) are only used when no specific key matched.
+_COND_PATTERNS: List[_CondPattern] = [
+    # ---- Voltage keys ---- (specific first, then general V)
+    # Note: value char class [-\d./+]+ includes "+" for signed values like "-5/+18"
+    _CondPattern("VGS",    r"\bVGS\s*=\s*([-\d./+]+)\s*V\b(?![A-Za-z])",               "V"),
+    _CondPattern("VDS",    r"\bVDS\s*=\s*([-\d./+]+)\s*V\b(?![A-Za-z])",               "V"),
+    _CondPattern("VDD",    r"\bVDD\s*=\s*([-\d./+]+)\s*V\b(?![A-Za-z])",               "V"),
+    _CondPattern("VR",     r"\bVR\s*=\s*([-\d./+]+)\s*V\b(?![A-Za-z])",                 "V"),
+    _CondPattern("VAC",    r"\bVAC\s*=\s*([-\d./+]+)\s*V\b(?![A-Za-z])",                "V"),
+    _CondPattern("VF",     r"\bVF\s*=\s*([-\d./+]+)\s*V\b(?![A-Za-z])",                 "V"),
+    _CondPattern("Visol",  r"\bVisol\s*=\s*([-\d./+]+)\s*V\b(?![A-Za-z])",             "V"),
+    _CondPattern("BVDS",   r"\bBVDS\s*=\s*([-\d./+]+)\s*V\b(?![A-Za-z])",              "V"),
+    # General V: only matches standalone V=numberV (not VGS=, VDS=, etc.)
+    # Word boundary \b prevents V in VGS/VDS from matching
+    _CondPattern("V",      r"\bV\s*=\s*([-\d./+]+)\s*V\b(?![A-Za-z])",                   "V"),
+
+    # ---- Current keys ---- (specific first, then general I)
+    _CondPattern("ID",     r"\bID\s*=\s*([-\d.]+)\s*(?:mA|A)\b",                      "A"),
+    _CondPattern("IF",     r"\bIF\s*=\s*([-\d.]+)\s*(?:mA|A)\b",                      "A"),
+    _CondPattern("IRM",    r"\bIRM\s*=\s*([-\d.]+)\s*(?:mA|A)\b",                     "A"),
+    _CondPattern("IRRM",   r"\bIRRM\s*=\s*([-\d.]+)\s*(?:mA|A)\b",                    "A"),
+    _CondPattern("IS",     r"\bIS\s*=\s*([-\d.]+)\s*(?:mA|A)\b",                      "A"),
+    _CondPattern("IGSS",   r"\bIGSS\s*=\s*([-\d.]+)\s*(?:mA|A)\b",                    "A"),
+    _CondPattern("IDSS",   r"\bIDSS\s*=\s*([-\d.]+)\s*(?:mA|A)\b",                    "A"),
+    # General I: word boundary prevents I in ID/IF/IS from matching
+    _CondPattern("I",       r"\bI\s*=\s*([-\d.]+)\s*(?:mA|A)\b",                        "A"),
+
+    # ---- Temperature keys ----
+    _CondPattern("TC",     r"\bTC\s*=\s*([-\d.]+)\s*(?:\u00b0C|°C|C)\b",              "°C"),
+    _CondPattern("TJ",     r"\bTJ\s*=\s*([-\d.]+)\s*(?:\u00b0C|°C|C)\b",              "°C"),
+    _CondPattern("Top",    r"\bTop\s*=\s*([-\d.]+)\s*(?:\u00b0C|°C|C)\b",            "°C"),
+    _CondPattern("Tstg",   r"\bTstg\s*=\s*([-\d.]+)\s*(?:\u00b0C|°C|C)\b",          "°C"),
+    _CondPattern("T",      r"\bT\s*=\s*([-\d.]+)\s*(?:\u00b0C|°C|C)\b",                "°C"),
+
+    # ---- Resistance keys ----
+    _CondPattern("RG(ext)", r"RG\s*\(\s*ext\s*\)\s*=\s*([-\d.]+)\s*(?:\u03a9|ohm)\b",  "Ω"),
+    _CondPattern("RG",     r"\bRG\s*=\s*([-\d.]+)\s*(?:\u03a9|ohm)\b",                "Ω"),
+    _CondPattern("R",       r"\bR\s*=\s*([-\d.]+)\s*(?:\u03a9|ohm)\b",                  "Ω"),
+
+    # ---- Frequency ----
+    _CondPattern("f",      r"\bf\s*=\s*([-\d.]+)\s*(?:MHz|kHz|Hz)\b",                  "Hz"),
+
+    # ---- Load inductance ----
+    _CondPattern("Load",   r"\bLoad\s*=\s*([-\d.]+)\s*(?:\u03bcH|µH)\b",             "µH"),
 ]
+
+
+# ------------------------------------------------------------------
+# Step 3: Static keywords (no numeric value)
+# ------------------------------------------------------------------
+_STATIC_KEYWORDS = frozenset([
+    "Terminal to Terminal",
+    "Terminal to Baseplate",
+    "VDS=VGS",
+])
+
+
+# ------------------------------------------------------------------
+# Step 4: Generic key suppression map
+# When a specific key is found, suppress the generic counterpart.
+# ------------------------------------------------------------------
+_GENERIC_KEY_SUPPRESSES: Dict[str, str] = {
+    # Voltage
+    "VGS": "V", "VDS": "V", "VDD": "V", "VR": "V", "VAC": "V", "VF": "V", "Visol": "V", "BVDS": "V",
+    # Current
+    "ID": "I", "IF": "I", "IRM": "I", "IRRM": "I", "IS": "I", "IGSS": "I", "IDSS": "I",
+    # Temperature
+    "TC": "T", "TJ": "T", "Top": "T", "Tstg": "T",
+    # Resistance
+    "RG(ext)": "R", "RG": "R",
+}
+
+
+# ------------------------------------------------------------------
+# Step 5: Extract condition from normalized text
+# ------------------------------------------------------------------
+
+def _extract_condition_from_text(src: str) -> str:
+    """
+    Extract condition key=value pairs from raw source text.
+    
+    Returns a "; "-joined string of conditions, e.g.:
+    "VGS=18V; ID=150A; TC=25°C"
+    
+    Features:
+    - Specific keys before generic: VGS before V, ID before I
+    - Units preserved: °C, A, V, Ω, µH, Hz
+    - Generic key suppression: if VGS found, don't add V
+    - Split key normalization: V GS → VGS, I D → ID
+    - Source text order preserved (first match wins per key)
+    """
+    if not src or len(src) > 2000:
+        return ""
+
+    normalized = _normalize_for_condition(src)
+
+    parts: List[str] = []
+    seen: set = set()
+    suppressed_generics: set = set()
+
+    # --- Static keywords (check in normalized text) ---
+    norm_lower = normalized.lower()
+    for kw in ("Terminal to Terminal", "Terminal to Baseplate"):
+        if kw.lower() in norm_lower:
+            parts.append(kw)
+            seen.add(kw.lower())
+
+    # --- VDS=VGS special case ---
+    # Matches "V =V ;" or "V=V ;" in source. When present, suppress generic V at the same position.
+    vds_vgs_pos = -1  # default: no VDS=VGS found
+    vds_vgs_match = re.search(r"\bV\s*=\s*V\s*;", norm_lower, re.IGNORECASE)
+    if vds_vgs_match:
+        parts.append("VDS=VGS")
+        seen.add("vds=vgs")
+        suppressed_generics.add("V")  # suppress generic V pattern
+        vds_vgs_pos = vds_vgs_match.start()  # remember position to skip
+
+    # --- Dynamic patterns (ordered by specificity) ---
+    for cp in _COND_PATTERNS:
+        key_lower = cp.key.lower()
+
+        # Skip if this key or its generic was already found
+        if key_lower in seen:
+            continue
+        if cp.key in suppressed_generics:
+            continue
+
+        m = cp.pattern.search(normalized)
+        if not m:
+            continue
+
+        # Skip generic V if match is at VDS=VGS position (we already captured VDS=VGS)
+        if (cp.key == "V" and 'vds=vgs' in seen and
+                hasattr(m, 'start') and m.start() == vds_vgs_pos):
+            continue
+
+        val = m.group(1)
+        # Build snippet: key=value with unit
+        snippet = f"{cp.key}={val}{cp.unit}"
+
+        if key_lower not in seen:
+            parts.append(snippet)
+            seen.add(key_lower)
+
+        # Suppress generic counterpart
+        if cp.key in _GENERIC_KEY_SUPPRESSES:
+            suppressed_generics.add(_GENERIC_KEY_SUPPRESSES[cp.key])
+
+    # ---- Post-processing: upgrade generic V → VGS if GS subscript appears in text ----
+    # When "GS" appears as a standalone token in the source and generic V was extracted,
+    # upgrade to VGS (most likely the intended key in datasheet context)
+    parts_lower = {p.lower() for p in parts}
+    if ("vgs" not in parts_lower and
+            any(p.lower().startswith("v=") for p in parts) and
+            re.search(r"\bGS\b", normalized)):
+        # Replace the first generic "V=..." with "VGS=..."
+        new_parts = []
+        upgraded = False
+        for p in parts:
+            if not upgraded and p.lower().startswith("v=") and "vgs" not in p.lower():
+                # Upgrade: replace value with same value but key=VGS
+                # Extract value from "V=VALUEUNIT"
+                mv = re.match(r"(V=)([\d./+-]+)(.*)", p)
+                if mv:
+                    new_parts.append(f"VGS={mv.group(2)}{mv.group(3)}")
+                    upgraded = True
+                    continue
+            new_parts.append(p)
+        parts = new_parts
+
+    result = "; ".join(parts[:8])
+    return result
+
+
+# ------------------------------------------------------------------
+# Step 6: Format condition from param dict
+# ------------------------------------------------------------------
+
+_GENERIC_KEYS_IN_CONDITION = frozenset(["V=", "I=", "T=", "R=", "L="])
 
 
 def format_condition(param: Optional[Dict[str, Any]]) -> str:
@@ -89,21 +315,35 @@ def format_condition(param: Optional[Dict[str, Any]]) -> str:
     Format condition string from param dict.
 
     Priority:
-        1. param["condition"]  (already normalized string)
-        2. param["condition_values"]  (list joined with "; ")
-        3. Extract from param["source_text"]  (specific patterns)
+        1. If param["condition"] contains generic keys (V=, I=, T=, R=)
+           AND source_text is available, re-extract from source_text for better fidelity.
+        2. param["condition"] (normalized)
+        3. param["condition_values"] (list joined with "; ")
+        4. Extract from param["source_text"]
 
-    Returns normalized condition string, never modifies param values.
+    Returns normalized condition string.
     """
     if not param:
         return ""
 
-    # Priority 1: condition field
+    # Priority 1: check if existing condition is generic and source_text available
     cond = param.get("condition") or ""
-    if cond.strip():
-        return _normalize_degrees(cond.strip())
+    src = param.get("source_text") or ""
 
-    # Priority 2: condition_values list
+    if cond.strip() and src.strip():
+        # Check if condition contains generic keys
+        cond_lower = cond.lower()
+        has_generic = any(gk in cond_lower for gk in _GENERIC_KEYS_IN_CONDITION)
+        if has_generic:
+            extracted = _extract_condition_from_text(src)
+            if extracted:
+                return extracted
+
+    # Priority 2: use existing condition (normalized)
+    if cond.strip():
+        return _normalize_for_condition(cond.strip())
+
+    # Priority 3: condition_values list
     cv = param.get("condition_values") or []
     if cv and any(str(v).strip() for v in cv):
         parts = []
@@ -112,60 +352,24 @@ def format_condition(param: Optional[Dict[str, Any]]) -> str:
             if s:
                 parts.append(s)
         if parts:
-            return _normalize_degrees("; ".join(parts))
+            return "; ".join(parts)
 
-    # Priority 3: extract from source_text
-    src = param.get("source_text") or ""
-    return _extract_condition_from_text(src)
+    # Priority 4: extract from source_text
+    if src.strip():
+        return _extract_condition_from_text(src)
+
+    return ""
 
 
-def _extract_condition_from_text(src: str) -> str:
-    """Extract condition snippets from raw source_text."""
-    if not src or len(src) > 2000:
-        return ""
-
-    # Normalize: remove spaces around = for cleaner key=value matching
-    # "V =18V" -> "V=18V", "I =150A" -> "I=150A"
-    # But preserve degree chars: "T =25°C" -> "T=25°C" (normalizes to standard °)
-    normalized = src
-    for deg in ("\u00b0", "\u2070", "\u2103", "\u33f1", "\uf0b0", "\u33f2"):
-        normalized = normalized.replace(deg, "\u00b0")
-    normalized = re.sub(r"(\w)\s*=\s*", r"\1=", normalized)
-
-    parts: List[str] = []
-    seen: set = set()
-
-    for pattern, key_or_static in _CONDITION_PATTERNS:
-        m = pattern.search(normalized)
-        if not m:
-            continue
-        # Static keyword: add as-is, no capture group
-        if isinstance(key_or_static, str) and key_or_static in _STATIC_KEYWORDS:
-            if key_or_static not in seen:
-                parts.append(key_or_static)
-                seen.add(key_or_static)
-            continue
-        # Dynamic key+value: requires capture group
-        if isinstance(key_or_static, str) and key_or_static not in _STATIC_KEYWORDS:
-            if m.lastindex and m.lastindex >= 1:
-                val = m.group(1)
-                snippet = f"{key_or_static}={val}"
-                if snippet not in seen and len(snippet) < 30:
-                    parts.append(snippet)
-                    seen.add(snippet)
-
-    # Limit to most relevant (first 6)
-    result = "; ".join(parts[:6])
-    return _normalize_degrees(result)
-
+# =============================================================================
+# Other Helper Functions (unchanged from v1)
+# =============================================================================
 
 def get_param_unit(param: Optional[Dict[str, Any]]) -> str:
     """Get unit from param dict, in priority order."""
     if not param:
         return ""
     return param.get("original_unit") or param.get("normalized_unit") or param.get("unit") or ""
-
-
 def format_param_value(param: Optional[Dict[str, Any]]) -> str:
     """Format parameter value as string per spec rules."""
     if not param:
