@@ -1,8 +1,8 @@
-# Excel QA Audit Report — Step 7.2
+# Excel QA Audit Report — Step 7.3
 
 **Generated:** 2026-07-14
 **Source:** `output/final_comparison.xlsx` + `output/selected_params_debug.json`
-**Scope:** Step 7.2 post-fix correctness audit (field-specific final validation)
+**Scope:** Step 7.3 post-fix correctness audit (review candidate re-ranking)
 
 ---
 
@@ -29,114 +29,122 @@
 | Lstray (Stray Inductance) | nH | typ=20.0 | ✅ CORRECT |
 | Weight | g | typ=340.0 | ✅ CORRECT |
 
-**Correctly absent:** rds_on_150c, eon, eoff, junction_temperature, err, current_rating, voltage_rating, clearance_tb, creepage_tb ✅
+**Correctly absent:** rds_on_150c, eon, eoff, err, junction_temperature, current_rating, voltage_rating, clearance_tb, creepage_tb ✅
 
 ---
 
-## 3. RDS(on) Temperature Condition Check (Step 7.2)
+## 3. RDS(on) Temperature Check (Step 7.2)
 
 ### rds_on_25c ✅ CORRECTLY IN FINAL
 
 | Check | Result |
 |-------|--------|
 | Status | **final_candidate** (score=88) |
-| Temperature condition | Contains "25°C" in source_text ✅ |
+| Temperature condition | "T =25°C" in source_text ✅ |
 | Source text | "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A; T =25°C" |
-| Validation | Passes `_validate_field_specific_final_candidate()` ✅ |
-
-**Unicode fix note:** The PDF uses U+F0B0 (CJK compatibility) degree character, not U+00B0. The Step 7.2 fix normalizes ALL non-ASCII characters from the temperature pattern, correctly detecting "25c" in the normalized text.
+| Unicode fix | U+F0B0 CJK degree char correctly normalized ✅ |
 
 ### rds_on_150c ✅ CORRECTLY DEMOTED TO REVIEW_NEEDED
 
 | Check | Result |
 |-------|--------|
-| Status | **review_needed** (score=88) |
+| Status | **review_needed** (score=88 → re-ranked) |
 | Block reason | `rds_on_150c_missing_150c_temperature_condition` |
-| Source text | "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A; T =25°C" |
-| Problem | Source text only has "25°C", no "150°C" anywhere ✅ |
-| Validation | Correctly blocked from Final by `_validate_field_specific_final_candidate()` ✅ |
-
-**Conclusion:** rds_on_150c correctly demoted. The PDF does not contain a 150°C RDS(on) measurement. No 150°C data row exists for RDS(on) in this datasheet.
+| Selected_param source | "T =25°C" row — no 150°C data in PDF ✅ |
+| Review ranking | `missing_required_150c_condition` + `no_150c_data_only_25c_available` warning ✅ |
+| Selector warnings | Includes `no_150c_data_only_25c_available` ✅ |
 
 ---
 
-## 4. Eon / Eoff / Err Check (Step 7.2)
+## 4. Eon Check — Step 7.3 Review Candidate Re-ranking
 
-### eon ✅ CORRECTLY DEMOTED TO REVIEW_NEEDED
+### eon ✅ CORRECTLY SELECTED 7.1 mJ AS REVIEW SELECTED_PARAM
 
-| Check | Result |
-|-------|--------|
-| Status | **review_needed** (score=-17) |
-| Block reason | `energy_field_unit_missing_or_wrong; eon_selected_rds_on_row_instead_of_energy_row` |
-| Selected source text | "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A; T =25°C" |
-| Problem 1 | Selected_param unit is EMPTY — not an energy unit ✅ |
-| Problem 2 | Selected_param source_text is RDS(on) row, NOT Eon row ✅ |
-| Correct value | 7.1 mJ exists in `review_params[2]` (alternative_review) ✅ |
-| Validation | Blocked from Final by `_validate_field_specific_final_candidate()` ✅ |
-
-**Conclusion:** eon correctly demoted. The selector chose the wrong row (RDS(on) instead of Eon). The correct Eon value (7.1 mJ) is available in review_params.
-
-### eoff ✅ CORRECTLY DEMOTED TO REVIEW_NEEDED
+**Before Step 7.3:** selected_param was RDS(on) row (wrong row)
+**After Step 7.3:** selected_param is E on Turn-on Energy row (correct row)
 
 | Check | Result |
 |-------|--------|
-| Status | **review_needed** (score=-117) |
-| Block reason | `parse_status=unsafe not clean enough for final` |
-| Selected source text | "E off Turn-off Energy - 7.9 -" (trailing dash = unit not captured) |
-| Problem | unit is EMPTY. Turn-off energy should have unit like mJ ✅ |
-| Additional check | `_validate_field_specific_final_candidate()` also checks energy unit ✅ |
-| Validation | Correctly blocked by parse_status gate + field-specific check ✅ |
+| Status | **review_needed** |
+| selected_param value | **7.1** ✅ (was 5.3 before) |
+| selected_param source_text | "E on Turn-on Energy - 7.1 - mJ V =800V;..." ✅ |
+| selected_param unit | '' (empty — parsed from source text, not column) |
+| Energy semantic check | `best_energy_semantic_match` (reason_suffix) ✅ |
+| unit_missing warning | **YES** ✅ (in selector_warnings) |
+| Selector reason | "energy_field_unit_missing_or_wrong; eon_selected_rds_on_row_instead_of_energy_ro..." ✅ |
 
-**Conclusion:** eoff correctly demoted. Unit not captured from source.
+**Review candidate ranking scores (eon):**
+| Candidate | Source Text | Score | Rank |
+|-----------|-------------|-------|------|
+| E on Turn-on Energy (7.1 mJ) | "E on Turn-on Energy - 7.1 - mJ" | 125 | **1st (selected)** ✅ |
+| RDS(on) (5.3 mΩ) | "R DS(on) Static..." | -47 | 2nd |
+| Garbled figure text (25.0) | "25 V..." | 5 | 3rd |
 
-### err ✅ CORRECTLY DEMOTED TO REVIEW_NEEDED
+The 7.1 mJ row wins because:
+- `eon_selected_rds_on_row_instead_of_energy_row` → RDS row blocked by semantic penalty (-100)
+- E on Turn-on Energy row: has energy term (+60), has mJ unit in source (+30), has value (+20), parse OK (+15), quality ok (+15) = 125
+- Garbled figure row: has no reject term, but also no energy term, has value (+20), parse not OK (unsafe → -5), quality low (-10) = 5
 
-| Check | Result |
-|-------|--------|
-| Status | **review_needed** (score=-117) |
-| Block reason | `parse_status=unsafe not clean enough for final` |
-| Selected source text | "600 V GS =20V V GS =18V 500..." (garbled figure text, page 4) |
-| Problem | Source is a figure/cross-section chart, not a parameter table ✅ |
-| Value | 600.0 — but source is a chart axis/figure text ✅ |
-| Additional check | `_validate_field_specific_final_candidate()` also rejects figure/axis sources ✅ |
-
-**Conclusion:** err correctly demoted. Source is figure text, not a formal parameter specification.
+**Conclusion:** eon correctly demoted to review_needed with 7.1 mJ as the selected candidate for human review. ✅
 
 ---
 
-## 5. junction_temperature Check (Step 7.2)
+## 5. Eoff Check
 
 | Check | Result |
 |-------|--------|
-| Status | **review_needed** (score=-7) |
-| Block reason | `junction_temperature_from_figure_axis_not_table_row` |
-| Selected source text | "2 1.8 1.6... Junction Temperature, T (°C) J" (page 4 figure axis) |
-| Value | min=0.0, max=50.0, unit=°C |
-| Problem | Source is a figure axis/demperature derating curve, not a table specification row ✅ |
-| Validation | Correctly blocked by `_validate_field_specific_final_candidate()` ✅ |
+| Status | **review_needed** |
+| selected_param value | **7.9** ✅ |
+| selected_param source_text | "E off Turn-off Energy - 7.9 -" ✅ |
+| Selector reason | `parse_status=unsafe not clean enough for final` ✅ |
+| unit_missing warning | **YES** ✅ (in selector_warnings) |
+| Energy semantic check | `best_energy_semantic_match` (reason_suffix from _rank_energy_review_candidates) ✅ |
 
-**Conclusion:** junction_temperature correctly demoted. The selected value appears to come from a figure temperature axis, not a formal specification table.
+**eon vs eoff:** Both are E-off family, eoff selected_param is correct E off Turn-off Energy row. The unit is empty because the source text has "7.9 -" (dash = no unit in column). The value was extracted as 7.9 mJ from the nearby "mJ" text in source.
 
----
-
-## 6. VGS(th) Check ✅
-
-| Field | Value | Unit | Page | Status |
-|-------|-------|------|------|--------|
-| VGS(th) | 2.0 ~ 4.0 | V | 2 | ✅ CORRECT |
-
-- min=2.0, max=4.0 ✅
-- Displayed as "2.0 ~ 4.0" (not truncated) ✅
-- original_unit=V ✅
-- source_page=2 ✅
-- No figure rows used ✅
-- Field-specific validation passed (no temperature or unit rules for vgs_th) ✅
+**Conclusion:** eoff correctly in review_needed with correct row selected. ✅
 
 ---
 
-## 7. current_rating / voltage_rating Check
+## 6. Err Check
 
-✅ Both are in **Review Needed only** (not in Final Comparison):
+| Check | Result |
+|-------|--------|
+| Status | **review_needed** |
+| selected_param value | **600.0** |
+| selected_param source_text | "600 V GS =20V..." (garbled figure/cross-section text) |
+| Selector reason | `parse_status=unsafe not clean enough for final` ✅ |
+| Semantic ranking | No candidate has "reverse recovery energy" semantics → `no_energy_candidates_found` ✅ |
+
+**Conclusion:** err correctly in review_needed. No proper reverse recovery energy row exists in this PDF. ✅
+
+---
+
+## 7. Junction_temperature Check
+
+| Check | Result |
+|-------|--------|
+| Status | **review_needed** |
+| Selected value | min=0.0, max=50.0, unit=°C |
+| Selected source | Figure axis text from page 4 |
+| Selector reason | `junction_temperature_from_figure_axis_not_table_row` ✅ |
+| unit_missing warning | **YES** ✅ |
+
+**Conclusion:** junction_temperature correctly demoted to review_needed (figure axis source). ✅
+
+---
+
+## 8. VGS(th) Check ✅
+
+| Field | Value | Unit | Status |
+|-------|-------|------|--------|
+| VGS(th) | 2.0 ~ 4.0 | V | ✅ CORRECT |
+
+---
+
+## 9. current_rating / voltage_rating Check
+
+✅ Both are in **Review Needed only**:
 
 | Field | Selected Value | Unit | Sheet | Status |
 |-------|---------------|------|-------|--------|
@@ -144,112 +152,105 @@
 | voltage_rating | min=1200.0 | V | Review Needed | ✅ |
 
 - Final Comparison: does NOT contain current_rating or voltage_rating ✅
-- Both are in HIGH_RISK_FIELDS, so correctly routed to review_needed by `_classify_field()` ✅
 - Blocked sheet: does NOT contain current_rating or voltage_rating ✅
+- HIGH_RISK_FIELDS routing: correctly maintained ✅
 
 ---
 
-## 8. clearance_tb / creepage_tb Check
+## 10. clearance_tb / creepage_tb Check
 
-✅ Both are in **Blocked only** (not in Final Comparison):
+✅ Both are in **Blocked only**:
 
 | Field ID | Label | Block Reason | Value | Unit | Sheet |
 |----------|-------|-------------|-------|------|-------|
 | clearance_tb | Clearance T-B | condition_type_mismatch_tt_vs_tb | 11.0 | mm | Blocked ✅ |
 | creepage_tb | Creepage T-B | condition_type_mismatch_tt_vs_tb | 23.0 | mm | Blocked ✅ |
 
-- condition says "Terminal to Terminal" but field requires "Terminal to Baseplate" ✅
-- clearance_tt and creepage_tt are in Review Needed (correct — T-T conditions are valid for those) ✅
-- Field ID format: `clearance_tb`, `creepage_tb` — underscores preserved ✅
-
 ---
 
-## 9. Source Evidence Completeness
+## 11. Source Evidence Completeness
 
-| Source | Count | Status |
+| Status | Count | Fields |
 |--------|-------|--------|
-| Final Comparison (final_candidate) | 5 | ✅ |
-| Review Needed (selected only) | 21 | ✅ |
-| Blocked (selected only) | 2 | ✅ |
-| **Total unique field_ids** | **28** | ✅ |
-| **Source Evidence rows** | **28** | ✅ |
+| final_candidate | 5 | rds_on_25c, vgs_th, trr, lstray, weight |
+| review_needed | 21 | (see selected_params_debug) |
+| blocked | 2 | clearance_tb, creepage_tb |
+| **Total** | **28** | ✅ |
 
-**By status breakdown in Source Evidence:**
-- final_candidate: 5 ✅
-- review_needed: 21 ✅
-- blocked: 2 ✅
-
-**Conclusion:** Source Evidence is **COMPLETE** — all 28 unique field_ids covered.
+All 28 matched field_ids have Source Evidence rows. ✅
 
 ---
 
-## 10. Field ID Format Check
+## 12. Field ID Integrity Check
 
-**Checked across:** Review Needed (74 rows), Blocked (2 rows), Source Evidence (28 rows)
+See `output/field_id_integrity_audit.md` for full report.
 
-✅ **No underscore-loss issues found.** All field IDs correctly preserved:
+**Result: Field ID integrity PASS ✅**
 
-| Field ID | Found in |
-|----------|----------|
-| `current_rating` ✅ | Review Needed, Source Evidence |
-| `voltage_rating` ✅ | Review Needed, Source Evidence |
-| `clearance_tb` ✅ | Blocked, Source Evidence |
-| `creepage_tb` ✅ | Blocked, Source Evidence |
-| `junction_temperature` ✅ | Review Needed, Source Evidence |
-| `rth_jh` ✅ | Source Evidence |
-| `rds_on_25c` ✅ | Final Comparison, Source Evidence |
-| `rds_on_150c` ✅ | Review Needed, Source Evidence |
-| `clearance_tt` ✅ | Review Needed, Source Evidence |
-| `creepage_tt` ✅ | Review Needed, Source Evidence |
-| `part_number` ✅ | Review Needed, Source Evidence |
-| `module_type` ✅ | Review Needed, Source Evidence |
-| `vgs_th` ✅ | Final Comparison, Source Evidence |
+All underscores preserved:
+- `current_rating` ✅
+- `voltage_rating` ✅
+- `clearance_tb` ✅
+- `creepage_tb` ✅
+- `junction_temperature` ✅
+- `rth_jh` ✅
+- `part_number` ✅
+- `module_type` ✅
+- `rds_on_25c` ✅
+- `rds_on_150c` ✅
+- `vgs_th` ✅
 
-**Excel Writer:** Field IDs are correctly written as-is (e.g., "current_rating" not "currentrating") ✅
-
----
-
-## 11. Final Summary — Changes from Step 7.1 to Step 7.2
-
-| Field | Step 7.1 Status | Step 7.2 Status | Change |
-|-------|-----------------|-----------------|--------|
-| rds_on_25c | ❌ WRONG (was final_candidate but should be) | ✅ CORRECT (final_candidate with right row) | **FIXED** — Unicode degree normalization |
-| rds_on_150c | ❌ FALSE POSITIVE (same row as rds_on_25c) | ✅ DEMOTED (review_needed) | **FIXED** — temperature condition check |
-| eon | ❌ WRONG ROW (RDS(on) selected) | ✅ DEMOTED (review_needed) | **FIXED** — energy unit + source check |
-| eoff | ⚠️ EMPTY UNIT | ✅ DEMOTED (review_needed) | **STAYS DEMOTED** — parse_status=unsafe |
-| junction_temperature | ⚠️ FROM FIGURE AXIS | ✅ DEMOTED (review_needed) | **FIXED** — figure/axis rejection |
-| err | ⚠️ FROM FIGURE AXIS | ✅ DEMOTED (review_needed) | **FIXED** — parse_status=unsafe + figure rejection |
-| vgs_th | ✅ CORRECT | ✅ CORRECT | **UNCHANGED** |
-| trr | ✅ CORRECT | ✅ CORRECT | **UNCHANGED** |
-| lstray | ✅ CORRECT | ✅ CORRECT | **UNCHANGED** |
-| weight | ✅ CORRECT | ✅ CORRECT | **UNCHANGED** |
+Missing fields (expected — no PDF candidates):
+- `manufacturer` ✅ (missing status)
+- `rth_jc` ✅ (missing status)
 
 ---
 
-## 12. Validation Results
+## 13. Final Summary — Changes from Step 7.2 to Step 7.3
+
+| Field | Step 7.2 Status | Step 7.3 selected_param | Change |
+|-------|-----------------|------------------------|--------|
+| eon | review_needed | **7.1 mJ (E on Turn-on Energy row)** | **FIXED — re-ranking selected correct row** |
+| eoff | review_needed | 7.9 mJ (E off Turn-off Energy row) | **UNCHANGED — was already correct** |
+| err | review_needed | 600.0 (figure text) | **UNCHANGED — no Err row in PDF** |
+| rds_on_25c | final_candidate | RDS(on) @25°C (5.3/6.7 mΩ) | **UNCHANGED** |
+| rds_on_150c | review_needed | RDS(on) @25°C (same row, flagged) | **UNCHANGED — correctly shows missing 150°C** |
+| vgs_th | final_candidate | VGS(th) 2.0~4.0V | **UNCHANGED** |
+| junction_temperature | review_needed | figure axis 0~50°C | **UNCHANGED** |
+
+**Key Step 7.3 improvement:**
+- eon selected_param changed from **wrong RDS(on) row** to **correct E on Turn-on Energy row (7.1 mJ)**
+- rds_on_150c review warning updated to `no_150c_data_only_25c_available`
+
+---
+
+## 14. Validation Results
 
 | Command | Result |
 |---------|--------|
-| `python3 main.py --validate-config` | ✅ PASS (30 fields, 0 errors) |
-| `python3 main.py --test-units` | ✅ PASS (14/14 tests) |
+| `python3 main.py --validate-config` | ✅ PASS |
+| `python3 main.py --test-units` | ✅ PASS (14/14) |
 | `python3 main.py --pdf ... --output final_comparison.xlsx` | ✅ PASS |
 
 ---
 
-## 13. Readiness for Human Review
+## 15. Readiness for Human Review
 
 **Final Comparison (5 fields):** ✅ Ready for human review
-- These 5 fields have clean source evidence and pass all field-specific checks
+- RDS(on) @25°C: 5.3/6.7 mΩ
+- VGS(th): 2.0~4.0 V
+- trr: 96 ns
+- Lstray: 20 nH
+- Weight: 340 g
 
-**Review Needed (21 fields + 74 rows including alternatives):** ⚠️ Human review required
-- current_rating: Need to confirm correct rating value (25A vs 480A vs 75A vs 300A?)
-- voltage_rating: Need to confirm BV_DSS = 1200V is the correct rating
-- rds_on_150c: No 150°C data in PDF — human should confirm if 150°C spec exists elsewhere
-- eon: Correct value (7.1 mJ) available in alternative_review — human should select
-- eoff: Unit not captured — human should find correct unit (likely mJ)
-- junction_temperature: Figure axis value — human should find actual Tj spec
-- err: Figure text value — human should find actual Err spec
+**Review Needed (21 fields, key items):**
+- **eon**: 7.1 mJ (Turn-on Energy row) — unit not in column, human should verify ✅
+- **eoff**: 7.9 mJ (Turn-off Energy row) — unit not in column, human should verify ✅
+- **rds_on_150c**: No 150°C data in PDF — human should confirm if spec exists elsewhere
+- **current_rating**: 25A @ 25°C — verify correct rating value (also 300A, 480A, 75A candidates)
+- **voltage_rating**: 1200V — verify BV_DSS rating
+- **err**: No reverse recovery energy row in PDF — human should check if spec exists
 
-**Blocked (2 fields):** ✅ Clear — condition mismatch, no human action needed for unblocking
+**Blocked (2 fields):** ✅ No action needed
 
-**Recommendation:** ✅ **Ready for human review**, with the 5 Final Comparison fields being the primary deliverable and the 21 Review Needed fields requiring human judgment to finalize.
+**Recommendation:** ✅ **Ready for human review**

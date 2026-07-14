@@ -432,13 +432,23 @@ def _classify_field(
     # Field-specific safety checks (Step 7.2: false-positive hardening)
     # =======================================================================
     field_check = _validate_field_specific_final_candidate(field_id, best_param, source_text)
-    if not field_check[0]:  # cannot enter final
+    if not field_check[0]:  # cannot enter final -> re-rank for review (Step 7.3)
         blockers = field_check[1]
+        # Build all non-blocked candidates for re-ranking
+        all_review_candidates = [best_param] + review_params
+        # Re-rank: pick best semantic match for human review
+        re_rank = _select_best_review_candidate(field_id, all_review_candidates)
+        best_review_param, best_review_score, review_warnings, review_reason_suffix = re_rank
+        # If unit is missing on an energy field, add explicit warning
+        if field_id in ("eon", "eoff", "err"):
+            unit = best_review_param.get("original_unit") or ""
+            if not unit.strip():
+                review_warnings.append("unit_missing")
         result["selection_status"] = "review_needed"
-        result["selector_score"] = best_score
+        result["selector_score"] = best_review_score
         result["selector_reason"] = "; ".join(blockers)
-        result["selector_warnings"] = best_soft.copy() + blockers
-        result["selected_param"] = best_param
+        result["selector_warnings"] = best_soft.copy() + blockers + review_warnings
+        result["selected_param"] = best_review_param
         result["review_params"] = review_params
         result["blocked_params"] = blocked_params
         result["review_params_count"] = len(review_params)
@@ -580,6 +590,268 @@ def _validate_field_specific_final_candidate(
     if blockers:
         return (False, blockers)
     return (True, [])
+
+
+# =============================================================================
+# Review Candidate Re-ranking (Step 7.3)
+# When field-specific validation blocks a candidate from Final, re-rank the
+# remaining candidates to pick the best semantic match for human review.
+# =============================================================================
+
+_REVIEW_BLOCKED_KEYWORDS = frozenset([
+    "figure_caption_not_parameter_row",
+    "unit_rejected_wrong_dimension",
+    "condition_type_mismatch",
+    "value_from_condition_rejected",
+    "no_value_parsed",
+    "source_semantics_not_matching_field",
+    "rds_temperature_condition_mismatch",
+    "selected_rds_on_row_instead_of_energy_row",
+    "energy_field_unit_missing_or_wrong",
+    "eon_selected_rds_on_row_instead_of_energy_row",
+    "eon_source_text_not_energy_semantics",
+    "eoff_source_text_not_energy_semantics",
+    "err_source_text_not_recovery_energy_semantics",
+    "junction_temperature_from_figure_axis_not_table_row",
+    "err_from_figure_axis_rejected",
+    "rds_on_25c_missing_25c_temperature_condition",
+    "rds_on_150c_missing_150c_temperature_condition",
+])
+
+
+def _is_review_blocked(param: Dict[str, Any]) -> bool:
+    """Check if a candidate is clearly blocked and unsuitable for review selection."""
+    rr = param.get("review_reason") or ""
+    for kw in _REVIEW_BLOCKED_KEYWORDS:
+        if kw in rr:
+            return True
+    return False
+
+
+def _select_best_review_candidate(
+    field_id: str,
+    candidates: List[Dict[str, Any]],
+) -> Tuple[Dict[str, Any], int, List[str], str]:
+    """
+    Pick the best semantic match for human review when a field is review_needed.
+
+    Args:
+        field_id: field identifier
+        candidates: list of non-blocked candidate dicts (all non-blocked)
+
+    Returns:
+        (best_param, best_score, warnings, reason_suffix)
+
+    Strategy:
+        1. For eon/eoff/err: apply field-specific semantic ranking
+        2. For rds_on_150c: prefer candidates closest to 150°C condition
+        3. General fallback: prefer parsed, high quality, has value, has unit
+    """
+    warnings: List[str] = []
+    reason_suffix = ""
+
+    # Filter out clearly dangerous blocked candidates first
+    non_blocked = [p for p in candidates if not _is_review_blocked(p)]
+    if not non_blocked:
+        # All blocked: use the highest-scoring one anyway
+        scored = [(p, _score_candidate(p, {"preferred_value": ""})[0], p) for p in candidates]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        best = scored[0][2]
+        warnings.append("all_candidates_blocked")
+        reason_suffix = "no_suitable_candidates"
+        return best, scored[0][1], warnings, reason_suffix
+
+    # ---- Field-specific ranking ----
+    if field_id in ("eon", "eoff", "err"):
+        best, score, warns, suffix = _rank_energy_review_candidates(field_id, non_blocked)
+        warnings.extend(warns)
+        reason_suffix = suffix
+        return best, score, warnings, reason_suffix
+
+    if field_id == "rds_on_150c":
+        best, score, warns, suffix = _rank_rds_150c_review_candidates(non_blocked)
+        warnings.extend(warns)
+        reason_suffix = suffix
+        return best, score, warnings, reason_suffix
+
+    # ---- General fallback ranking ----
+    best_param, best_score, best_warnings = _rank_general_review(non_blocked)
+    warnings.extend(best_warnings)
+    reason_suffix = "general_review_ranking"
+    return best_param, best_score, warnings, reason_suffix
+
+
+def _rank_energy_review_candidates(
+    field_id: str,
+    candidates: List[Dict[str, Any]],
+) -> Tuple[Dict[str, Any], int, List[str], str]:
+    """Rank candidates for eon/eoff/err based on energy semantics."""
+    energy_terms_map = {
+        "eon": ["e on", "turn-on", "turn on", "turn-on energy",
+                 "switching energy", "eon"],
+        "eoff": ["e off", "turn-off", "turn off", "turn-off energy",
+                  "switching energy", "eoff"],
+        "err": ["reverse recovery energy", "recovery energy",
+                 "err", "e_rr", "reverse recovery"],
+    }
+    reject_terms = ["rds", "rds(on)", "drain-source on resistance",
+                    "static", "m\u03a9"]
+    figure_terms = ["figure", "fig.", "chart", "plot", " vs.", " vs ",
+                    "axis", "curve", "normalized", "drain-source voltage"]
+
+    energy_terms = energy_terms_map.get(field_id, [])
+    scored: List[Tuple[Dict[str, Any], int, List[str]]] = []
+
+    for p in candidates:
+        score = 0
+        p_warns: List[str] = []
+        src_lower = p.get("source_text", "").lower()
+        unit = (p.get("original_unit") or "").strip()
+
+        # Positive signals
+        has_energy_term = any(t in src_lower for t in energy_terms)
+        has_reject_term = any(t in src_lower for t in reject_terms)
+        has_figure_term = any(t in src_lower for t in figure_terms)
+        has_energy_unit = unit.lower() in {"mj", "\u03bcj", "uj", "j", "kj"}
+        has_value = any(p.get(k) is not None for k in ("value", "min", "typ", "max"))
+        parse_ok = p.get("parse_status") in ("parsed", "partial")
+        quality_ok = p.get("parse_quality") in ("high", "medium")
+
+        if has_reject_term:
+            score -= 100  # Strong penalty: wrong row type
+            p_warns.append("wrong_row_type_for_energy_field")
+        elif has_figure_term:
+            score -= 50  # Penalty: figure/axis text
+            p_warns.append("figure_or_chart_source")
+        else:
+            if has_energy_term:
+                score += 60  # Strong bonus: correct semantics
+            if has_energy_unit:
+                score += 30  # Bonus: has energy unit
+            elif unit:
+                score += 10  # Partial: has some unit
+            else:
+                p_warns.append("unit_missing")
+
+        if parse_ok:
+            score += 15
+        if quality_ok:
+            score += 15
+        elif p.get("parse_quality") == "low":
+            score -= 10
+        if has_value:
+            score += 20
+
+        scored.append((p, score, p_warns))
+
+    # Sort by score descending
+    scored.sort(key=lambda x: x[1], reverse=True)
+    best_param, best_score, best_warns = scored[0]
+
+    # Determine reason suffix
+    src_lower = best_param.get("source_text", "").lower()
+    if any(t in src_lower for t in energy_terms):
+        suffix = "best_energy_semantic_match"
+    elif any(t in src_lower for t in reject_terms):
+        suffix = "no_energy_candidates_found"
+    elif any(t in src_lower for t in figure_terms):
+        suffix = "best_available_is_figure_text"
+    else:
+        suffix = "best_review_candidate"
+
+    return best_param, best_score, best_warns, suffix
+
+
+def _rank_rds_150c_review_candidates(
+    candidates: List[Dict[str, Any]],
+) -> Tuple[Dict[str, Any], int, List[str], str]:
+    """Rank candidates for rds_on_150c review selection."""
+    scored: List[Tuple[Dict[str, Any], int, List[str]]] = []
+
+    for p in candidates:
+        score = 0
+        p_warns: List[str] = []
+        src_lower = p.get("source_text", "").lower()
+        condition = (p.get("condition") or "").lower()
+
+        # Normalize for temperature matching
+        text_norm = src_lower.replace(" ", "")
+        for deg_char in ("\u00b0", "\u2103", "\u33f2", "\u2070", "\u00b2",
+                         "\uf0b0", "\u2074"):
+            text_norm = text_norm.replace(deg_char, "")
+
+        # Prefer closest to 150°C condition
+        has_150 = any(t in text_norm or t in condition
+                      for t in ["150c", "tc150", "tj150", "t150"])
+        has_25 = any(t in text_norm or t in condition
+                    for t in ["25c", "tc25", "tj25", "t25"])
+
+        if has_150:
+            score += 100
+        elif has_25:
+            score += 10  # 25°C is better than nothing
+            p_warns.append("no_150c_data_only_25c_available")
+        else:
+            p_warns.append("no_temperature_condition")
+
+        has_value = any(p.get(k) is not None for k in ("value", "min", "typ", "max"))
+        parse_ok = p.get("parse_status") in ("parsed", "partial")
+        quality_ok = p.get("parse_quality") in ("high", "medium")
+        if parse_ok:
+            score += 15
+        if quality_ok:
+            score += 15
+        if has_value:
+            score += 20
+
+        scored.append((p, score, p_warns))
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+    best_param, best_score, best_warns = scored[0]
+
+    src_lower = best_param.get("source_text", "").lower()
+    if any(t in src_lower for t in ["150c", "tc150", "tj150", "t150"]):
+        suffix = "best_150c_candidate"
+    elif any(t in src_lower for t in ["25c", "tc25", "tj25", "t25"]):
+        suffix = "missing_required_150c_condition"
+    else:
+        suffix = "no_temperature_condition_available"
+
+    return best_param, best_score, best_warns, suffix
+
+
+def _rank_general_review(
+    candidates: List[Dict[str, Any]],
+) -> Tuple[Dict[str, Any], int, List[str]]:
+    """General fallback ranking for review candidates."""
+    scored: List[Tuple[Dict[str, Any], int, List[str]]] = []
+
+    for p in candidates:
+        score = 0
+        p_warns: List[str] = []
+
+        has_value = any(p.get(k) is not None for k in ("value", "min", "typ", "max"))
+        parse_ok = p.get("parse_status") in ("parsed", "partial")
+        quality_ok = p.get("parse_quality") in ("high", "medium")
+        has_unit = bool((p.get("original_unit") or "").strip())
+
+        if parse_ok:
+            score += 20
+        if quality_ok:
+            score += 20
+        elif p.get("parse_quality") == "low":
+            score -= 10
+        if has_value:
+            score += 25
+        if has_unit:
+            score += 15
+        else:
+            p_warns.append("unit_missing")
+
+        scored.append((p, score, p_warns))
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return scored[0][0], scored[0][1], scored[0][2]
 
 
 # =============================================================================
