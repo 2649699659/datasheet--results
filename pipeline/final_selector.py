@@ -1,5 +1,5 @@
 """
-Final Selector v0 - Candidate Selection for Datasheet Extraction
+Final Selector v1 - Candidate Selection for Datasheet Extraction
 
 Selects best candidate per field_id from parsed params and classifies as:
 - final_candidate: Clean enough for Final Comparison
@@ -11,8 +11,10 @@ Does NOT generate Excel. Pure selection logic.
 """
 
 import json
+import enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from dataclasses import dataclass, asdict
+from dataclasses import is_dataclass, asdict
 
 
 # =============================================================================
@@ -44,6 +46,57 @@ SOFT_WARNINGS = {
 
 # High-risk fields that should default to review_needed in v1
 HIGH_RISK_FIELDS = {"current_rating", "voltage_rating"}
+
+# Unknown document marker
+UNKNOWN_DOCUMENT_ID = "unknown_document"
+
+
+# =============================================================================
+# JSON Serialization Helpers
+# =============================================================================
+
+def json_safe(obj: Any) -> Any:
+    """
+    Recursively convert an object to be JSON-serializable.
+    Handles: Enum -> .value, Path -> str, dataclass -> dict,
+             list/tuple -> list, dict -> dict.
+    """
+    if obj is None or isinstance(obj, (bool, int, float, str)):
+        return obj
+    if isinstance(obj, enum.Enum):
+        return obj.value
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, (list, tuple)):
+        return [json_safe(item) for item in obj]
+    if isinstance(obj, dict):
+        return {k: json_safe(v) for k, v in obj.items()}
+    if is_dataclass(obj):
+        return json_safe(asdict(obj))
+    # Fallback: try str
+    try:
+        return str(obj)
+    except Exception:
+        return repr(obj)
+
+
+def _to_dict(p: Any) -> Dict[str, Any]:
+    """
+    Convert a RawExtractedParam dataclass or dict to a plain dict.
+    
+    Priority:
+    1. Already a dict -> return as-is
+    2. Has to_dict() method -> use it (RawExtractedParam.to_dict() handles Enums)
+    3. Dataclass -> use dataclasses.asdict()
+    4. Fallback -> vars()
+    """
+    if isinstance(p, dict):
+        return p
+    if hasattr(p, "to_dict"):
+        return p.to_dict()
+    if is_dataclass(p):
+        return asdict(p)
+    return vars(p)
 
 
 # =============================================================================
@@ -168,11 +221,11 @@ def _score_candidate(param: Dict[str, Any], field_config: Dict[str, Any]) -> Tup
 
 
 def _classify_field(
-    params: List[Any],
+    params: List[Dict[str, Any]],
     field_config: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
-    Classify a single field from its candidates.
+    Classify a single field from its candidates (all params already converted to dicts).
     
     Returns a field selection dict.
     """
@@ -195,9 +248,6 @@ def _classify_field(
         "review_params_count": 0,
         "blocked_params_count": 0,
     }
-
-    # Ensure all params are dicts
-    params = [_to_dict(p) for p in params]
 
     if not params:
         # Missing field
@@ -236,7 +286,6 @@ def _classify_field(
 
     # --- High-risk fields: current_rating, voltage_rating ---
     if field_id in HIGH_RISK_FIELDS:
-        # Always review_needed in v1
         result["selection_status"] = "review_needed"
         result["selector_score"] = best_score
         result["selector_reason"] = "high_risk_rating_field_review_first"
@@ -409,43 +458,30 @@ def _classify_field(
 
 
 # =============================================================================
-# Main Selector Function
+# Document-level classification
 # =============================================================================
 
-def _to_dict(p: Any) -> Dict[str, Any]:
-    """Convert a RawExtractedParam dataclass or dict to a plain dict."""
-    if isinstance(p, dict):
-        return p
-    # Assume dataclass with asdict method or __dict__
-    if hasattr(p, "asdict"):
-        return p.asdict()
-    return vars(p)
-
-
-def select_final_candidates(
-    parsed_params: List[Any],
+def _classify_document(
+    doc_params: Dict[str, List[Dict[str, Any]]],
+    doc_info: Dict[str, str],
     target_fields: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """
-    Main entry point for Final Selector v0.
+    Classify all fields for one document.
     
     Args:
-        parsed_params: List of RawExtractedParam dataclass objects or dicts
-        target_fields: List of field config dicts from target_fields.yaml
+        doc_params: {field_id: [param_dicts]} for this document
+        doc_info: {document_id, file_name, pdf_stem, pdf_path}
+        target_fields: List of field config dicts
     
     Returns:
-        Selection result dict with per-field selection status
+        Document result dict with fields list
     """
-    # Build lookup - convert all to dicts
-    by_field: Dict[str, List[Dict[str, Any]]] = {}
-    for p in parsed_params:
-        d = _to_dict(p)
-        fid = d.get("field_id", "unknown")
-        if fid not in by_field:
-            by_field[fid] = []
-        by_field[fid].append(d)
-
-    results = {
+    doc_result = {
+        "document_id": doc_info.get("document_id", UNKNOWN_DOCUMENT_ID),
+        "file_name": doc_info.get("file_name", "unknown"),
+        "pdf_stem": doc_info.get("pdf_stem", "unknown"),
+        "pdf_path": doc_info.get("pdf_path", ""),
         "field_count": len(target_fields),
         "final_candidate_count": 0,
         "review_needed_count": 0,
@@ -456,20 +492,123 @@ def select_final_candidates(
 
     for field_config in target_fields:
         fid = field_config["id"]
-        params = by_field.get(fid, [])
-        result = _classify_field(params, field_config)
-        results["fields"].append(result)
+        params = doc_params.get(fid, [])
+        field_result = _classify_field(params, field_config)
+        doc_result["fields"].append(field_result)
 
-        # Count by status
-        status = result["selection_status"]
+        status = field_result["selection_status"]
         if status == "final_candidate":
-            results["final_candidate_count"] += 1
+            doc_result["final_candidate_count"] += 1
         elif status == "review_needed":
-            results["review_needed_count"] += 1
+            doc_result["review_needed_count"] += 1
         elif status == "blocked":
-            results["blocked_count"] += 1
+            doc_result["blocked_count"] += 1
         elif status == "missing":
-            results["missing_count"] += 1
+            doc_result["missing_count"] += 1
+
+    return doc_result
+
+
+# =============================================================================
+# Main Selector Function
+# =============================================================================
+
+def select_final_candidates(
+    parsed_params: List[Any],
+    target_fields: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Main entry point for Final Selector v1 (document-based).
+    
+    Args:
+        parsed_params: List of RawExtractedParam dataclass objects or dicts
+        target_fields: List of field config dicts from target_fields.yaml
+    
+    Returns:
+        Document-based selection result dict:
+        {
+          "document_count": N,
+          "field_count": 30,
+          "total_final_candidate_count": 0,
+          "total_review_needed_count": 0,
+          "total_blocked_count": 0,
+          "total_missing_count": 0,
+          "documents": [
+            {
+              "document_id": "...",
+              "file_name": "...",
+              "pdf_stem": "...",
+              "pdf_path": "...",
+              "field_count": 30,
+              "final_candidate_count": 0,
+              "review_needed_count": 0,
+              "blocked_count": 0,
+              "missing_count": 0,
+              "fields": [{field_result}, ...]
+            },
+            ...
+          ]
+        }
+    """
+    # Group params by document_id, then by field_id
+    # {document_id: {field_id: [param_dicts]}}
+    by_doc: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+
+    for p in parsed_params:
+        d = _to_dict(p)
+        doc_id = d.get("document_id") or UNKNOWN_DOCUMENT_ID
+        fid = d.get("field_id", "unknown")
+
+        if doc_id not in by_doc:
+            by_doc[doc_id] = {}
+        if fid not in by_doc[doc_id]:
+            by_doc[doc_id][fid] = []
+        by_doc[doc_id][fid].append(d)
+
+    # Build document info from first param of each document
+    doc_infos: Dict[str, Dict[str, str]] = {}
+    for doc_id in by_doc:
+        # Find first param with non-empty doc info
+        for fid, params in by_doc[doc_id].items():
+            for p in params:
+                doc_infos[doc_id] = {
+                    "document_id": p.get("document_id") or UNKNOWN_DOCUMENT_ID,
+                    "file_name": p.get("file_name") or "unknown",
+                    "pdf_stem": p.get("pdf_stem") or "unknown",
+                    "pdf_path": p.get("pdf_path") or "",
+                }
+                break
+            break
+        if doc_id not in doc_infos:
+            doc_infos[doc_id] = {
+                "document_id": doc_id,
+                "file_name": "unknown",
+                "pdf_stem": "unknown",
+                "pdf_path": "",
+            }
+
+    # Classify each document
+    results = {
+        "document_count": len(by_doc),
+        "field_count": len(target_fields),
+        "total_final_candidate_count": 0,
+        "total_review_needed_count": 0,
+        "total_blocked_count": 0,
+        "total_missing_count": 0,
+        "documents": [],
+    }
+
+    for doc_id in sorted(by_doc.keys()):
+        doc_result = _classify_document(
+            by_doc[doc_id],
+            doc_infos[doc_id],
+            target_fields,
+        )
+        results["documents"].append(doc_result)
+        results["total_final_candidate_count"] += doc_result["final_candidate_count"]
+        results["total_review_needed_count"] += doc_result["review_needed_count"]
+        results["total_blocked_count"] += doc_result["blocked_count"]
+        results["total_missing_count"] += doc_result["missing_count"]
 
     return results
 
@@ -479,187 +618,203 @@ def select_final_candidates(
 # =============================================================================
 
 def generate_selector_audit(selection_result: Dict[str, Any]) -> str:
-    """Generate selector_audit.md markdown report."""
+    """Generate selector_audit.md markdown report (document-based)."""
     lines = []
-    lines.append("# Final Selector Audit (Step 6)")
+    lines.append("# Final Selector Audit (Step 6.1)")
     lines.append("")
     lines.append("## 1. Overview")
     lines.append("")
     lines.append(f"| Metric | Value |")
     lines.append(f"|--------|-------|")
-    lines.append(f"| Total Target Fields | {selection_result['field_count']} |")
-    lines.append(f"| **final_candidate** | **{selection_result['final_candidate_count']}** |")
-    lines.append(f"| review_needed | {selection_result['review_needed_count']} |")
-    lines.append(f"| blocked | {selection_result['blocked_count']} |")
-    lines.append(f"| missing | {selection_result['missing_count']} |")
+    lines.append(f"| document_count | {selection_result['document_count']} |")
+    lines.append(f"| field_count | {selection_result['field_count']} |")
+    lines.append(f"| **total_final_candidate** | **{selection_result['total_final_candidate_count']}** |")
+    lines.append(f"| total_review_needed | {selection_result['total_review_needed_count']} |")
+    lines.append(f"| total_blocked | {selection_result['total_blocked_count']} |")
+    lines.append(f"| total_missing | {selection_result['total_missing_count']} |")
     lines.append("")
 
-    # Separate fields by status
-    final_fields = [f for f in selection_result["fields"] if f["selection_status"] == "final_candidate"]
-    review_fields = [f for f in selection_result["fields"] if f["selection_status"] == "review_needed"]
-    blocked_fields = [f for f in selection_result["fields"] if f["selection_status"] == "blocked"]
-    missing_fields = [f for f in selection_result["fields"] if f["selection_status"] == "missing"]
-
     # =======================================================================
-    # Section 2: Final Candidates
+    # Section 2: Documents Summary
     # =======================================================================
-    lines.append("## 2. Final Candidates")
+    lines.append("## 2. Documents Summary")
     lines.append("")
-    if final_fields:
-        lines.append(f"| Field ID | Value | Unit | Score | Page | Reason |")
-        lines.append(f"|----------|-------|------|-------|------|--------|")
-        for f in final_fields:
-            p = f["selected_param"]
-            val_parts = []
-            if p.get("min") is not None:
-                val_parts.append(f"min={p['min']}")
-            if p.get("typ") is not None:
-                val_parts.append(f"typ={p['typ']}")
-            if p.get("max") is not None:
-                val_parts.append(f"max={p['max']}")
-            if p.get("value") is not None:
-                val_parts.append(f"val={p['value']}")
-            val_str = ", ".join(val_parts) if val_parts else "-"
-            unit = p.get("original_unit", "-")
-            score = f["selector_score"]
-            page = p.get("source_page", "-")
-            reason = f["selector_reason"][:60]
-            lines.append(f"| {f['field_id']} | {val_str} | {unit} | {score} | {page} | {reason} |")
-        lines.append("")
-    else:
-        lines.append("*No final candidates.*")
-        lines.append("")
-
-    # =======================================================================
-    # Section 3: Review Needed Fields
-    # =======================================================================
-    lines.append("## 3. Review Needed Fields")
-    lines.append("")
-    if review_fields:
-        lines.append(f"| Field ID | Score | Reason | Warnings | Candidates |")
-        lines.append(f"|----------|-------|--------|----------|------------|")
-        for f in sorted(review_fields, key=lambda x: -x["selector_score"]):
-            score = f["selector_score"]
-            reason = f["selector_reason"][:50]
-            warnings = ", ".join(f["selector_warnings"])[:60] if f["selector_warnings"] else "-"
-            count = f["candidate_count"]
-            lines.append(f"| {f['field_id']} | {score} | {reason} | {warnings} | {count} |")
-        lines.append("")
-    else:
-        lines.append("*No review-needed fields.*")
-        lines.append("")
-
-    # =======================================================================
-    # Section 4: Blocked Fields
-    # =======================================================================
-    lines.append("## 4. Blocked Fields")
-    lines.append("")
-    if blocked_fields:
-        lines.append(f"| Field ID | Reason | Candidates |")
-        lines.append(f"|----------|--------|------------|")
-        for f in blocked_fields:
-            reason = f["selector_reason"][:70]
-            count = f["candidate_count"]
-            lines.append(f"| {f['field_id']} | {reason} | {count} |")
-        lines.append("")
-    else:
-        lines.append("*No blocked fields.*")
-        lines.append("")
-
-    # =======================================================================
-    # Section 5: Missing Fields
-    # =======================================================================
-    lines.append("## 5. Missing Fields")
-    lines.append("")
-    if missing_fields:
-        lines.append(f"| Field ID | Reason | Suggested Action |")
-        lines.append(f"|----------|--------|------------------|")
-        for f in missing_fields:
-            reason = f["selector_reason"]
-            action = "metadata/page_text extraction" if f["field_id"] in ("manufacturer", "part_number") else "parser_fix_or_missing_in_pdf"
-            lines.append(f"| {f['field_id']} | {reason} | {action} |")
-        lines.append("")
-    else:
-        lines.append("*No missing fields.*")
-        lines.append("")
-
-    # =======================================================================
-    # Section 6: vgs_th Selection Check
-    # =======================================================================
-    lines.append("## 6. vgs_th Selection Check")
-    lines.append("")
-    vgs_th_fields = [f for f in selection_result["fields"] if f["field_id"] == "vgs_th"]
-    if vgs_th_fields:
-        vf = vgs_th_fields[0]
-        p = vf["selected_param"]
-        lines.append(f"**Selection Status**: {vf['selection_status']}")
-        lines.append(f"**Selector Score**: {vf['selector_score']}")
-        lines.append(f"**Selector Reason**: {vf['selector_reason']}")
-        lines.append("")
-        lines.append(f"| Property | Value |")
-        lines.append(f"|----------|-------|")
-        lines.append(f"| min | {p.get('min', '-')} |")
-        lines.append(f"| max | {p.get('max', '-')} |")
-        lines.append(f"| value | {p.get('value', '-')} |")
-        lines.append(f"| original_unit | {p.get('original_unit', '-')} |")
-        lines.append(f"| source_page | {p.get('source_page', '-')} |")
-        lines.append(f"| row_index | {p.get('row_index', '-')} |")
-        lines.append(f"| source_text | {p.get('source_text', '-')[:100]} |")
-        lines.append(f"| parse_status | {p.get('parse_status', '-')} |")
-        lines.append(f"| parse_quality | {p.get('parse_quality', '-')} |")
-        lines.append(f"| unit_sanity_status | {p.get('unit_sanity_status', '-')} |")
-        lines.append(f"| unit_source | {p.get('unit_source', '-')} |")
-        lines.append(f"| review_reason | {p.get('review_reason', '-')} |")
-        lines.append(f"| Warnings | {', '.join(vf['selector_warnings']) or '-'} |")
-        lines.append("")
-        
-        # Check if this is the clean candidate
-        is_clean = (
-            p.get("min") == 2.0 and
-            p.get("max") == 4.0 and
-            p.get("original_unit") == "V" and
-            "figure_caption" not in (p.get("review_reason") or "")
+    lines.append(f"| document_id | file_name | pdf_stem | final_candidate | review_needed | blocked | missing |")
+    lines.append(f"|-------------|----------|---------|----------------|--------------|--------|--------|")
+    for doc in selection_result["documents"]:
+        lines.append(
+            f"| {doc['document_id']} | {doc['file_name']} | {doc['pdf_stem']} | "
+            f"{doc['final_candidate_count']} | {doc['review_needed_count']} | "
+            f"{doc['blocked_count']} | {doc['missing_count']} |"
         )
-        lines.append(f"**Is Clean vgs_th Candidate (min=2.0, max=4.0, unit=V, no figure)**: {'YES ✅' if is_clean else 'NO ❌'}")
-        lines.append("")
-    else:
-        lines.append("*No vgs_th field found.*")
-        lines.append("")
+    lines.append("")
 
     # =======================================================================
-    # Section 7: High-risk Rating Fields
+    # Section 3: Per-document Selection
     # =======================================================================
-    lines.append("## 7. High-risk Rating Fields")
+    lines.append("## 3. Per-document Selection")
+    lines.append("")
+
+    for doc in selection_result["documents"]:
+        lines.append(f"### Document: {doc['file_name']}")
+        lines.append("")
+        lines.append(f"document_id: `{doc['document_id']}`  |  pdf_stem: `{doc['pdf_stem']}`")
+        lines.append("")
+
+        final_fields = [f for f in doc["fields"] if f["selection_status"] == "final_candidate"]
+        review_fields = [f for f in doc["fields"] if f["selection_status"] == "review_needed"]
+        blocked_fields = [f for f in doc["fields"] if f["selection_status"] == "blocked"]
+        missing_fields = [f for f in doc["fields"] if f["selection_status"] == "missing"]
+
+        # Final Candidates
+        lines.append("#### Final Candidates")
+        if final_fields:
+            lines.append(f"| Field ID | Value | Unit | Score | Page | Reason |")
+            lines.append(f"|----------|-------|------|-------|------|--------|")
+            for f in final_fields:
+                p = f["selected_param"]
+                val_parts = []
+                if p and p.get("min") is not None:
+                    val_parts.append(f"min={p['min']}")
+                if p and p.get("typ") is not None:
+                    val_parts.append(f"typ={p['typ']}")
+                if p and p.get("max") is not None:
+                    val_parts.append(f"max={p['max']}")
+                if p and p.get("value") is not None:
+                    val_parts.append(f"val={p['value']}")
+                val_str = ", ".join(val_parts) if val_parts else "-"
+                unit = (p.get("original_unit", "-") if p else "-")
+                score = f["selector_score"]
+                page = (p.get("source_page", "-") if p else "-")
+                reason = f["selector_reason"][:60]
+                lines.append(f"| {f['field_id']} | {val_str} | {unit} | {score} | {page} | {reason} |")
+            lines.append("")
+        else:
+            lines.append("*No final candidates.*")
+            lines.append("")
+
+        # Review Needed
+        lines.append("#### Review Needed")
+        if review_fields:
+            lines.append(f"| Field ID | Score | Reason | Warnings | Candidates |")
+            lines.append(f"|----------|-------|--------|----------|------------|")
+            for f in sorted(review_fields, key=lambda x: -x["selector_score"]):
+                score = f["selector_score"]
+                reason = f["selector_reason"][:50]
+                warnings = ", ".join(f["selector_warnings"])[:60] if f["selector_warnings"] else "-"
+                count = f["candidate_count"]
+                lines.append(f"| {f['field_id']} | {score} | {reason} | {warnings} | {count} |")
+            lines.append("")
+        else:
+            lines.append("*No review-needed fields.*")
+            lines.append("")
+
+        # Blocked
+        lines.append("#### Blocked")
+        if blocked_fields:
+            lines.append(f"| Field ID | Reason | Candidates |")
+            lines.append(f"|----------|--------|------------|")
+            for f in blocked_fields:
+                reason = f["selector_reason"][:70]
+                count = f["candidate_count"]
+                lines.append(f"| {f['field_id']} | {reason} | {count} |")
+            lines.append("")
+        else:
+            lines.append("*No blocked fields.*")
+            lines.append("")
+
+        # Missing
+        lines.append("#### Missing")
+        if missing_fields:
+            lines.append(f"| Field ID | Suggested Action |")
+            lines.append(f"|----------|------------------|")
+            for f in missing_fields:
+                action = "metadata/page_text extraction" if f["field_id"] in ("manufacturer", "part_number") else "parser_fix_or_missing_in_pdf"
+                lines.append(f"| {f['field_id']} | {action} |")
+            lines.append("")
+        else:
+            lines.append("*No missing fields.*")
+            lines.append("")
+
+    # =======================================================================
+    # Section 4: vgs_th Selection Check
+    # =======================================================================
+    lines.append("## 4. vgs_th Selection Check")
+    lines.append("")
+    for doc in selection_result["documents"]:
+        vgs_th_fields = [f for f in doc["fields"] if f["field_id"] == "vgs_th"]
+        if vgs_th_fields:
+            vf = vgs_th_fields[0]
+            p = vf["selected_param"]
+            lines.append(f"**Document**: {doc['file_name']} (`{doc['document_id']}`)")
+            lines.append(f"**Selection Status**: {vf['selection_status']}")
+            lines.append(f"**Selector Score**: {vf['selector_score']}")
+            lines.append(f"**Selector Reason**: {vf['selector_reason']}")
+            lines.append("")
+            if p:
+                lines.append(f"| Property | Value |")
+                lines.append(f"|----------|-------|")
+                lines.append(f"| min | {p.get('min', '-')} |")
+                lines.append(f"| max | {p.get('max', '-')} |")
+                lines.append(f"| value | {p.get('value', '-')} |")
+                lines.append(f"| original_unit | {p.get('original_unit', '-')} |")
+                lines.append(f"| source_page | {p.get('source_page', '-')} |")
+                lines.append(f"| source_text | {p.get('source_text', '-')[:100]} |")
+                lines.append(f"| parse_status | {p.get('parse_status', '-')} |")
+                lines.append(f"| parse_quality | {p.get('parse_quality', '-')} |")
+                lines.append(f"| unit_sanity_status | {p.get('unit_sanity_status', '-')} |")
+                lines.append("")
+                is_clean = (
+                    p.get("min") == 2.0 and
+                    p.get("max") == 4.0 and
+                    p.get("original_unit") == "V" and
+                    "figure_caption" not in (p.get("review_reason") or "")
+                )
+                lines.append(f"**Is Clean vgs_th (min=2.0, max=4.0, unit=V, no figure)**: {'YES ✅' if is_clean else 'NO ❌'}")
+            else:
+                lines.append("*No vgs_th candidate selected.*")
+            lines.append("")
+        else:
+            lines.append(f"**Document**: {doc['file_name']} — no vgs_th field found")
+            lines.append("")
+
+    # =======================================================================
+    # Section 5: High-risk Rating Fields
+    # =======================================================================
+    lines.append("## 5. High-risk Rating Fields")
     lines.append("")
     rating_fields = ["current_rating", "voltage_rating"]
     for rfid in rating_fields:
-        rfields = [f for f in selection_result["fields"] if f["field_id"] == rfid]
-        if rfields:
-            rf = rfields[0]
-            lines.append(f"### {rfid}")
-            lines.append("")
-            lines.append(f"**Selection Status**: {rf['selection_status']}")
-            lines.append(f"**Selector Score**: {rf['selector_score']}")
-            lines.append(f"**Selector Reason**: {rf['selector_reason']}")
-            p = rf["selected_param"]
-            if p:
-                val_parts = []
-                if p.get("value") is not None:
-                    val_parts.append(f"value={p['value']}")
-                if p.get("original_unit"):
-                    val_parts.append(f"unit={p['original_unit']}")
-                lines.append(f"**Best Candidate**: {', '.join(val_parts) if val_parts else 'N/A'}")
-                lines.append(f"**Candidate Count**: {rf['candidate_count']}")
-                lines.append(f"**Review Params**: {rf['review_params_count']}")
-                lines.append(f"**Blocked Params**: {rf['blocked_params_count']}")
-            lines.append("")
-            lines.append(f"**Why not in Final**: High-risk field with ambiguous_rating_row or wrong_dimension issues. Defaulted to review_needed per v1 rules.")
-            lines.append("")
+        lines.append(f"### {rfid}")
+        lines.append("")
+        for doc in selection_result["documents"]:
+            rf = next((f for f in doc["fields"] if f["field_id"] == rfid), None)
+            if rf:
+                p = rf["selected_param"]
+                lines.append(f"**Document**: {doc['file_name']} (`{doc['document_id']}`)")
+                lines.append(f"- Selection Status: {rf['selection_status']}")
+                lines.append(f"- Selector Score: {rf['selector_score']}")
+                lines.append(f"- Selector Reason: {rf['selector_reason']}")
+                if p:
+                    val_parts = []
+                    if p.get("value") is not None:
+                        val_parts.append(f"value={p['value']}")
+                    if p.get("original_unit"):
+                        val_parts.append(f"unit={p['original_unit']}")
+                    lines.append(f"- Best Candidate: {', '.join(val_parts) if val_parts else 'N/A'}")
+                    lines.append(f"- Candidate Count: {rf['candidate_count']}")
+                lines.append(f"- Why not in Final: High-risk field. Defaulted to review_needed per v1 rules.")
+                lines.append("")
+            else:
+                lines.append(f"**Document**: {doc['file_name']} — no {rfid} field found")
+                lines.append("")
 
     return "\n".join(lines)
 
 
 def save_selection_json(selection_result: Dict[str, Any], path: str) -> None:
-    """Save selection result to JSON (with param dicts)."""
+    """Save selection result to JSON with full JSON-safety."""
+    # Apply json_safe recursively to ensure Enum objects are converted
+    safe_result = json_safe(selection_result)
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(selection_result, f, ensure_ascii=False, indent=2)
+        json.dump(safe_result, f, ensure_ascii=False, indent=2)

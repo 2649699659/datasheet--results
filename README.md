@@ -8,9 +8,9 @@
 
 ## 项目阶段
 
-**当前阶段：Step 5.6 - Debug Pipeline 验证阶段**
+**当前阶段：Step 6.1 - Final Selector Debug + Multi-PDF Isolation**
 
-此阶段目标是验证规则匹配和值解析逻辑，输出为 debug JSON 和 audit Markdown 文件。
+此阶段目标是实现 Final Selector v1（按 document_id 分组），完成参数选择逻辑，输出为 debug JSON 和 audit Markdown 文件。
 
 ### 当前生成的输出文件
 
@@ -21,11 +21,13 @@
 | `output/candidate_audit.md` | 候选行匹配 audit 报告 |
 | `output/raw_params_debug.json` | 解析后参数 debug 数据 |
 | `output/value_parse_audit.md` | 值解析 audit 报告 |
+| `output/selected_params_debug.json` | Final Selector 选择结果 (document-based) |
+| `output/selector_audit.md` | Final Selector audit 报告 |
 
 ### 后续阶段目标
 
-- **Step 6+**: Excel 输出 (final_comparison.xlsx)
-- **Future**: LLM 增强、Final Selector、值选择逻辑
+- **Step 7+**: Excel 输出 (final_comparison.xlsx)
+- **Future**: LLM 增强、metadata 提取
 
 当前**不生成** Excel 文件。Excel 输出是后续阶段目标。
 
@@ -73,6 +75,7 @@ datasheet-extractor-rebuild/
 │   ├── parser.py             # 候选行匹配层
 │   ├── models.py             # 数据模型
 │   ├── value_parser.py       # 值解析层
+│   ├── final_selector.py     # Final Selector v1 (document-based)
 │   ├── llm_agent.py          # [stub] LLM 增强层
 │   └── post_processor.py     # [stub] 最终值选择层
 ├── utils/
@@ -134,7 +137,7 @@ datasheet-extractor-rebuild/
 - ❌ 不做 OCR
 - ❌ 不做 LangChain / LlamaIndex
 - ❌ 不做单位换算 (当前禁用)
-- ❌ 不做 Final Selector
+- ❌ 不做 Final Selector（已实现 Step 6.1）
 - ❌ 不调用 LLM
 - ❌ 不写厂商专用规则
 - ❌ 不把任何值标 confirmed

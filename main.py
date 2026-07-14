@@ -437,7 +437,7 @@ def main():
     print("=" * 60)
     
     # ========== Step 6: Final Selector ==========
-    print("\nStep 6: Selecting final candidates...")
+    print("\nStep 6.1: Selecting final candidates (document-based)...")
     
     # Run final selector
     selection_result = select_final_candidates(parsed_params, target_fields)
@@ -454,30 +454,34 @@ def main():
         f.write(selector_audit_markdown)
     print(f"  Selector audit saved to: {selector_audit_path}")
     
-    # Print selector summary
-    print(f"\nSELECTION SUMMARY (Step 6)")
+    # Print selector summary (document-based)
+    print(f"\nSELECTION SUMMARY (Step 6.1)")
     print("=" * 60)
-    print(f"  Total fields:           {selection_result['field_count']}")
-    print(f"  final_candidate:        {selection_result['final_candidate_count']}")
-    print(f"  review_needed:         {selection_result['review_needed_count']}")
-    print(f"  blocked:               {selection_result['blocked_count']}")
-    print(f"  missing:                {selection_result['missing_count']}")
+    print(f"  Documents:              {selection_result['document_count']}")
+    print(f"  Fields per document:    {selection_result['field_count']}")
+    print(f"  total_final_candidate:  {selection_result['total_final_candidate_count']}")
+    print(f"  total_review_needed:   {selection_result['total_review_needed_count']}")
+    print(f"  total_blocked:         {selection_result['total_blocked_count']}")
+    print(f"  total_missing:         {selection_result['total_missing_count']}")
     print("=" * 60)
     
-    if selection_result['final_candidate_count'] > 0:
-        print(f"\n  Final Candidates:")
-        for f in selection_result["fields"]:
-            if f["selection_status"] == "final_candidate":
-                p = f["selected_param"]
-                val_parts = []
-                if p.get("min") is not None: val_parts.append(f"min={p['min']}")
-                if p.get("typ") is not None: val_parts.append(f"typ={p['typ']}")
-                if p.get("max") is not None: val_parts.append(f"max={p['max']}")
-                if p.get("value") is not None: val_parts.append(f"val={p['value']}")
-                val_str = ", ".join(val_parts) if val_parts else "-"
-                print(f"    - {f['field_id']}: {val_str} {p.get('original_unit', '')} (score={f['selector_score']})")
+    # Print per-document summary
+    for doc in selection_result["documents"]:
+        print(f"\n  Document: {doc['file_name']} ({doc['document_id']})")
+        print(f"    final_candidate: {doc['final_candidate_count']}  |  review_needed: {doc['review_needed_count']}  |  blocked: {doc['blocked_count']}  |  missing: {doc['missing_count']}")
+        if doc['final_candidate_count'] > 0:
+            for f in doc["fields"]:
+                if f["selection_status"] == "final_candidate":
+                    p = f["selected_param"]
+                    val_parts = []
+                    if p and p.get("min") is not None: val_parts.append(f"min={p['min']}")
+                    if p and p.get("typ") is not None: val_parts.append(f"typ={p['typ']}")
+                    if p and p.get("max") is not None: val_parts.append(f"max={p['max']}")
+                    if p and p.get("value") is not None: val_parts.append(f"val={p['value']}")
+                    val_str = ", ".join(val_parts) if val_parts else "-"
+                    print(f"      - {f['field_id']}: {val_str} {p.get('original_unit', '') if p else ''} (score={f['selector_score']})")
     
-    print("\nNOTE: This is Step 6 - Final Selector only.")
+    print("\nNOTE: This is Step 6.1 - Final Selector v1 (document-based).")
     print("      No unit conversion, no Excel generated yet.")
     
     return 0
