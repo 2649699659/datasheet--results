@@ -267,22 +267,43 @@ def _extract_condition_from_text(src: str) -> str:
 
         val = m.group(1)
         # Build snippet: key=value with unit
-        snippet = f"{cp.key}={val}{cp.unit}"
+        # For generic keys (I, T, R), extract actual unit from source to preserve mA, mΩ etc.
+        # e.g., "I =30mA" should show "I=30mA" not "I=30A"
+        if cp.key in ("I", "T", "R"):
+            # Extract actual value+unit from source (full match after the '=')
+            full_match = m.group(0)
+            after_eq = full_match.split("=")[-1].strip()
+            # The 'after_eq' includes the actual unit from source
+            # e.g., "30mA", "25°C", "5Ω"
+            snippet = f"{cp.key}={after_eq}"
+        else:
+            snippet = f"{cp.key}={val}{cp.unit}"
 
         if key_lower not in seen:
             parts.append(snippet)
             seen.add(key_lower)
 
+        # Special case: don't add generic V to seen - there can be multiple V parameters
+        # in datasheets (e.g., VGS=-5/+18V and VR=800V in trr). The V→VGS upgrade
+        # will convert the first V to VGS if appropriate.
         # Suppress generic counterpart
+        # Special case: don't suppress generic V when VGS is found - they are often different
+        # parameters (e.g., VGS=-5/+18V and VR=800V in trr datasheet). The generic V=800V
+        # should NOT be suppressed just because VGS was found.
         if cp.key in _GENERIC_KEY_SUPPRESSES:
-            suppressed_generics.add(_GENERIC_KEY_SUPPRESSES[cp.key])
+            generic_key = _GENERIC_KEY_SUPPRESSES[cp.key]
+            if not (cp.key == "VGS" and generic_key == "V"):
+                suppressed_generics.add(generic_key)
 
     # ---- Post-processing: upgrade generic V → VGS if GS subscript appears in text ----
     # When "GS" appears as a standalone token in the source and generic V was extracted,
     # upgrade to VGS (most likely the intended key in datasheet context)
+    # BUT: don't upgrade if VGS= already exists in source (they are different parameters)
     parts_lower = {p.lower() for p in parts}
+    vgs_in_source = bool(re.search(r"\bVGS\s*=", norm_lower, re.IGNORECASE))
     if ("vgs" not in parts_lower and
             any(p.lower().startswith("v=") for p in parts) and
+            not vgs_in_source and  # Don't upgrade if VGS= already exists in source
             re.search(r"\bGS\b", normalized)):
         # Replace the first generic "V=..." with "VGS=..."
         new_parts = []
@@ -333,7 +354,8 @@ def format_condition(param: Optional[Dict[str, Any]]) -> str:
     if cond.strip() and src.strip():
         # Check if condition contains generic keys
         cond_lower = cond.lower()
-        has_generic = any(gk in cond_lower for gk in _GENERIC_KEYS_IN_CONDITION)
+        # Compare lowercase keys against lowercase cond (frozenset has uppercase)
+        has_generic = any(gk.lower() in cond_lower for gk in _GENERIC_KEYS_IN_CONDITION)
         if has_generic:
             extracted = _extract_condition_from_text(src)
             if extracted:
