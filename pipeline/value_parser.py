@@ -22,26 +22,85 @@ from pipeline.models import RawExtractedParam, ParamStatus, ExtractionMethod, Un
 
 
 # Unit patterns for extraction
-UNIT_PATTERNS = [
-    r'V\b', r'A\b', r'mA\b', r'μA\b', r'uA\b',
-    r'mΩ\b', r'Ω\b', r'kΩ\b',
-    r'nF\b', r'pF\b', r'μF\b', r'uF\b',
-    r'nC\b', r'μC\b', r'uC\b',
-    r'μJ\b', r'uJ\b', r'mJ\b',
-    r'ns\b', r'μs\b', r'us\b', r'ms\b',
-    r'°C\b', r'°C/W\b', r'K/W\b',
-    r'nH\b', r'μH\b', r'uH\b', r'mH\b',
-    r'g\b', r'kg\b',
-    r'kV\b',
-    r'mm\b',
-    r'Hz\b', r'kHz\b', r'MHz\b', r'GHz\b',
-    r'W\b', r'kW\b', r'MW\b',
-    r'J\b',
+# Unit patterns - LONGEST/MOST_SPECIFIC FIRST to avoid short-unit greedy matching
+# Each entry: (pattern, normalized_unit)
+UNIT_PATTERNS: List[Tuple[str, str]] = [
+    # Thermal resistance (compound units - longest first)
+    (r'°C/W\b', '°C/W'),
+    (r'K/W\b', 'K/W'),
+    # Ohm variants (compound first, then base)
+    (r'mΩ\b', 'mΩ'),
+    (r'kΩ\b', 'kΩ'),
+    (r'MΩ\b', 'MΩ'),
+    (r'Ω\b', 'Ω'),
+    # Voltage variants
+    (r'kV\b', 'kV'),
+    (r'mV\b', 'mV'),
+    (r'μV\b', 'μV'),
+    (r'V\b', 'V'),
+    # Current variants
+    (r'mA\b', 'mA'),
+    (r'μA\b', 'μA'),
+    (r'uA\b', 'uA'),
+    (r'A\b', 'A'),
+    # Capacitance variants
+    (r'nF\b', 'nF'),
+    (r'pF\b', 'pF'),
+    (r'μF\b', 'μF'),
+    (r'uF\b', 'uF'),
+    (r'F\b', 'F'),
+    # Temperature (must be before C to avoid matching C in °C)
+    (r'°C\b', '°C'),
+    # Charge variants (C after °C to avoid conflict)
+    (r'μC\b', 'μC'),
+    (r'uC\b', 'uC'),
+    (r'nC\b', 'nC'),
+    (r'pC\b', 'pC'),
+    (r'C\b', 'C'),
+    # Energy variants
+    (r'μJ\b', 'μJ'),
+    (r'uJ\b', 'uJ'),
+    (r'nJ\b', 'nJ'),
+    (r'mJ\b', 'mJ'),
+    (r'J\b', 'J'),
+    # Time variants
+    (r'μs\b', 'μs'),
+    (r'us\b', 'us'),
+    (r'ns\b', 'ns'),
+    (r'ms\b', 'ms'),
+    (r's\b', 's'),
+    # Inductance variants
+    (r'nH\b', 'nH'),
+    (r'μH\b', 'μH'),
+    (r'uH\b', 'uH'),
+    (r'mH\b', 'mH'),
+    (r'H\b', 'H'),
+    # Mass
+    (r'kg\b', 'kg'),
+    (r'g\b', 'g'),
+    # Length
+    (r'mm\b', 'mm'),
+    (r'cm\b', 'cm'),
+    # Frequency variants
+    (r'GHz\b', 'GHz'),
+    (r'MHz\b', 'MHz'),
+    (r'kHz\b', 'kHz'),
+    (r'Hz\b', 'Hz'),
+    # Power variants
+    (r'MW\b', 'MW'),
+    (r'kW\b', 'kW'),
+    (r'W\b', 'W'),
 ]
 
 # Numeric value patterns
 NUMERIC_PATTERN = r'[+-]?\d+\.?\d*(?:[eE][+-]?\d+)?'
-RANGE_PATTERN = r'([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s*to\s*([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)'
+# Range pattern - supports:
+# - "X to Y" (e.g., -40 to 150)
+# - "X - Y" (e.g., 2 - 4, en dash)
+# - "X – Y" (e.g., 2–4, em dash)
+# - "X ~ Y" (e.g., -40 ~ 150)
+# - "X ... Y" (e.g., -40 ... 150)
+RANGE_PATTERN = r'([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s*(?:to|[-–—~…])\s*([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)'
 PLUSMINUS_PATTERN = r'±\s*([+-]?\d+\.?\d*)'
 
 # Column header patterns - must be EXACT matches for conservative detection
@@ -57,8 +116,8 @@ HEADER_PATTERNS = {
 
 # Allowed units per field (Step 5.5)
 ALLOWED_UNITS: Dict[str, Set[str]] = {
-    'current_rating': {'A', 'mA', 'μA', 'uA'},
-    'voltage_rating': {'V', 'kV'},
+    'current_rating': {'A', 'mA', 'μA', 'uA', 'kA'},  # Step 5.9: added kA
+    'voltage_rating': {'V', 'kV', 'mV'},  # Step 5.9: added mV
     'rds_on_25c': {'mΩ', 'Ω', 'kΩ'},
     'rds_on_150c': {'mΩ', 'Ω', 'kΩ'},
     'vgs_th': {'V', 'mV'},
@@ -130,21 +189,212 @@ def normalize_unit(unit: str) -> str:
     return unit_map.get(unit, unit)
 
 
+def is_range_text(text: str) -> bool:
+    """Check if text is a range (e.g., '-40 to 150')."""
+    if not text:
+        return False
+    text = text.strip()
+    return bool(re.search(RANGE_PATTERN, text, re.IGNORECASE))
+
+
+def is_slash_list_text(text: str) -> bool:
+    """Check if text contains slash-separated numbers (e.g., '9/30/40')."""
+    if not text:
+        return False
+    text = text.strip()
+    # Must have at least 2 slashes with numeric content
+    if text.count('/') < 1:
+        return False
+    parts = text.split('/')
+    # At least 2 parts should be numeric
+    numeric_count = 0
+    for part in parts:
+        part = part.strip()
+        try:
+            float(part)
+            numeric_count += 1
+        except ValueError:
+            pass
+    return numeric_count >= 2
+
+
+def parse_range_values(text: str) -> Optional[Tuple[float, float]]:
+    """Parse range text and return (min_value, max_value). Returns None if not a range."""
+    if not text:
+        return None
+    text = text.strip()
+    match = re.search(RANGE_PATTERN, text, re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        min_val = float(match.group(1))
+        max_val = float(match.group(2))
+        return (min_val, max_val)
+    except ValueError:
+        return None
+
+
+def parse_range_from_cells(row_cells: List[str], source_text: str = "") -> Optional[Dict[str, Any]]:
+    """
+    Parse range from split cells like ['2', '-', '4', 'V'] or single cells.
+    Returns dict with min, max, unit, source, cells_used or None if not a range.
+    
+    Supports:
+    - Split cells: ["2", "-", "4", "V"] / ["2", "–", "4", "V"] / ["-40", "to", "150", "°C"]
+    - Single cell: "2 - 4 V" / "2–4 V" / "-40 to 150 °C"
+    """
+    # First try single-cell range check (existing logic)
+    for i, cell in enumerate(row_cells):
+        if is_range_text(cell):
+            range_values = parse_range_values(cell)
+            if range_values:
+                # Try to find unit from adjacent cell
+                unit = None
+                for j in range(i + 1, min(i + 3, len(row_cells))):
+                    candidate_unit = extract_unit(row_cells[j])
+                    if candidate_unit:
+                        unit = candidate_unit
+                        break
+                return {
+                    "min": range_values[0],
+                    "max": range_values[1],
+                    "unit": unit,
+                    "source": "single_cell",
+                    "cells_used": [i],
+                }
+    
+    # Try split-cell range detection
+    range_separators = {'-', '–', '—', 'to', 'To', 'TO', '~'}
+    
+    for i, cell in enumerate(row_cells):
+        cell_stripped = cell.strip()
+        # Check if current cell is a separator
+        if cell_stripped in range_separators:
+            # Look for number before separator
+            if i > 0:
+                try:
+                    min_val = float(row_cells[i - 1].strip())
+                except ValueError:
+                    continue
+                # Look for number after separator
+                if i + 1 < len(row_cells):
+                    max_val_str = row_cells[i + 1].strip().rstrip('.,;:')
+                    try:
+                        max_val = float(max_val_str)
+                    except ValueError:
+                        continue
+                    # Found valid range
+                    # Try to find unit from next cell after max
+                    unit = None
+                    for j in range(i + 2, min(i + 4, len(row_cells))):
+                        candidate_unit = extract_unit(row_cells[j])
+                        if candidate_unit:
+                            unit = candidate_unit
+                            break
+                    return {
+                        "min": min_val,
+                        "max": max_val,
+                        "unit": unit,
+                        "source": "split_cells",
+                        "cells_used": [i - 1, i, i + 1],
+                    }
+    
+    # Try to parse range from full source_text
+    if source_text:
+        range_values = parse_range_values(source_text)
+        if range_values:
+            # Try to find unit from source_text
+            unit = extract_unit(source_text)
+            return {
+                "min": range_values[0],
+                "max": range_values[1],
+                "unit": unit,
+                "source": "source_text",
+                "cells_used": [],
+            }
+    
+    return None
+
+
+def is_figure_or_caption_row(source_text: str, row_cells: List[str]) -> bool:
+    """
+    Detect if a row is a figure/caption row (not a parameter row).
+    Returns True if the row is a figure, caption, or chart label.
+    
+    Detects: Figure, Fig., 图, vs., versus, curve, chart, plot
+    """
+    if not source_text and not row_cells:
+        return False
+    
+    # Combine text from source_text and row_cells
+    all_text = source_text.lower()
+    for cell in row_cells:
+        all_text += " " + cell.lower()
+    
+    # Figure keywords
+    figure_keywords = [
+        "figure", "fig.", "fig ", "图", "curve", "chart", "plot",
+        "vs. ", "vs ", "versus", "characteristic", "characteristics",
+    ]
+    
+    for keyword in figure_keywords:
+        if keyword in all_text:
+            # Additional check: if it's just a figure reference in a table, still reject
+            # But allow if the row has clear parameter structure
+            if "parameter" in all_text or "symbol" in all_text or "typ" in all_text:
+                # Might be a legitimate parameter row with figure reference
+                # Be conservative: if it looks like a figure caption, reject
+                if any(k in all_text for k in ["figure", "fig.", "fig ", "图", "vs.", "vs ", "versus"]):
+                    return True
+            else:
+                return True
+    
+    return False
+
+
+def parse_slash_values(text: str) -> Optional[List[float]]:
+    """Parse slash-separated numbers and return list of values. Returns None if not slash-list."""
+    if not text:
+        return None
+    text = text.strip()
+    if not is_slash_list_text(text):
+        return None
+    parts = text.split('/')
+    values = []
+    for part in parts:
+        part = part.strip()
+        try:
+            values.append(float(part))
+        except ValueError:
+            pass
+    return values if values else None
+
+
 def parse_number(text: str) -> Optional[float]:
     """
-    Parse a number from text.
+    Parse a number from text. Returns None for ranges, slash-lists, or plain numbers.
     
     Supports:
     - 39.6, 1.4, 84, 8.5, 5.3, 11.1
     - scientific notation (1.2e-3)
     - ±20 (extracts the number after ±)
-    - -40 to 150 (extracts first number)
-    - fractions like 9/30/40 (takes first number)
+    
+    Does NOT treat as safe value:
+    - -40 to 150 (range - use parse_range_values instead)
+    - 9/30/40 (slash-list - use parse_slash_values instead)
     """
     if not text:
         return None
     
     text = text.strip()
+    
+    # Do NOT parse range as a single number (dangerous)
+    if is_range_text(text):
+        return None
+    
+    # Do NOT parse slash-list as a single number (dangerous)
+    if is_slash_list_text(text):
+        return None
     
     # Handle ± prefix
     plusminus_match = re.search(PLUSMINUS_PATTERN, text)
@@ -153,24 +403,6 @@ def parse_number(text: str) -> Optional[float]:
             return float(plusminus_match.group(1))
         except ValueError:
             pass
-    
-    # Handle range (e.g., "-40 to 150")
-    range_match = re.search(RANGE_PATTERN, text, re.IGNORECASE)
-    if range_match:
-        try:
-            return float(range_match.group(1))
-        except ValueError:
-            pass
-    
-    # Handle slash-separated numbers (take first)
-    if '/' in text:
-        parts = text.split('/')
-        for part in parts:
-            part = part.strip()
-            try:
-                return float(part)
-            except ValueError:
-                continue
     
     # Handle scientific notation
     try:
@@ -191,19 +423,19 @@ def parse_number(text: str) -> Optional[float]:
 
 def extract_unit(text: str) -> str:
     """
-    Extract unit from text.
+    Extract unit from text using longest-first UNIT_PATTERNS.
     
-    Returns the unit string if found, empty string otherwise.
+    Returns the normalized unit string if found, empty string otherwise.
     """
     if not text:
         return ""
     
     text = text.strip()
     
-    for pattern in UNIT_PATTERNS:
+    for pattern, normalized_unit in UNIT_PATTERNS:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            return match.group(0)
+            return normalized_unit
     
     return ""
 
@@ -267,18 +499,188 @@ def is_header_match(cell: str, header_patterns: List[str]) -> bool:
     return False
 
 
+# Step 5.8: Condition cell and unit detection
+CONDITION_PATTERNS = [
+    r'VDS\s*[=:]',    # VDS=800V
+    r'ID\s*[=:]',     # ID=300A
+    r'VGS\s*[=:]',    # VGS=15V
+    r'T[jic]\s*[=:]', # Tj=150°C, Tc=25°C
+    r'f\s*[=:]',      # f=1MHz
+    r'RG\s*[=:]',     # RG=10Ω
+    r'dI/dt\s*[=:]',  # dI/dt=1000A/μs
+    r'IF\s*[=:]',     # IF=300A
+    r'Terminal\s+to\s+Terminal',  # Terminal to Terminal
+    r'Terminal\s+to\s+Baseplate', # Terminal to Baseplate
+    r'\bT-T\b',       # T-T
+    r'\bT-B\b',       # T-B
+]
+
+
+def is_condition_cell(cell: str) -> bool:
+    """
+    Check if a cell is a condition cell (contains condition patterns).
+    
+    Examples of condition cells:
+    - "VDS=800V"
+    - "ID=300A"
+    - "Tj=150°C"
+    - "Terminal to Terminal"
+    - "T-T"
+    
+    Returns True if the cell contains a condition pattern, False otherwise.
+    """
+    if not cell:
+        return False
+    cell_clean = cell.strip()
+    for pattern in CONDITION_PATTERNS:
+        if re.search(pattern, cell_clean, re.IGNORECASE):
+            return True
+    return False
+
+
+def is_condition_unit_in_text(text: str, unit: str) -> bool:
+    """
+    Check if a unit appearing in text is part of a condition (not a main value unit).
+    
+    For example, in "VDS=800V", the "V" after "800" is part of the condition,
+    not the main unit for the parameter.
+    
+    Returns True if the unit appears to be in a condition context.
+    """
+    if not text or not unit:
+        return False
+    
+    # Build condition-like patterns that include the unit
+    condition_unit_patterns = [
+        rf'VDS\s*[=:].*{re.escape(unit)}',
+        rf'ID\s*[=:].*{re.escape(unit)}',
+        rf'VGS\s*[=:].*{re.escape(unit)}',
+        rf'T[jic]\s*[=:].*{re.escape(unit)}',
+        rf'f\s*[=:].*{re.escape(unit)}',
+        rf'RG\s*[=:].*{re.escape(unit)}',
+        rf'dI/dt\s*[=:].*{re.escape(unit)}',
+        rf'IF\s*[=:].*{re.escape(unit)}',
+    ]
+    
+    for pattern in condition_unit_patterns:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True
+    return False
+
+
+def extract_unit_for_param(
+    field_id: str,
+    row_cells: List[str],
+    column_map: Dict[str, int],
+    source_text: str,
+    condition_values: List[str]
+) -> Tuple[str, str, str]:
+    """
+    Extract unit for a parameter with conservative source tracking.
+    
+    Priority:
+    1. unit_column - Explicit Unit column in the table
+    2. value_cell - Unit embedded in the value cell itself (e.g., "300 A")
+    3. adjacent_cell - Unit in a cell directly adjacent to value cell
+    4. source_text_fallback - Unit found in full source text (lower confidence)
+    5. not_found - No unit found
+    
+    Returns: (original_unit, unit_source, unit_warning)
+    
+    Rules:
+    - Condition units (VDS=, ID=, VGS=, Tj=, etc.) are NOT used as original_unit
+    - source_text_fallback reduces parse_quality to medium/low
+    """
+    original_unit = ""
+    unit_source = "not_found"
+    unit_warning = ""
+    
+    # Strategy 1: Check for explicit Unit column
+    if 'unit' in column_map:
+        unit_col_idx = column_map['unit']
+        if unit_col_idx < len(row_cells):
+            cell_unit = extract_unit(row_cells[unit_col_idx])
+            if cell_unit:
+                original_unit = cell_unit
+                unit_source = "unit_column"
+                return original_unit, unit_source, unit_warning
+    
+    # Strategy 2: Check value/min/typ/max cells for embedded units
+    value_columns = []
+    for col_type in ('value', 'typ', 'min', 'max'):
+        if col_type in column_map:
+            value_columns.append(column_map[col_type])
+    
+    for col_idx in value_columns:
+        if col_idx < len(row_cells):
+            cell = row_cells[col_idx]
+            cell_unit = extract_unit(cell)
+            if cell_unit:
+                # Check if this unit is part of a condition
+                if is_condition_unit_in_text(cell, cell_unit):
+                    unit_warning = "unit_in_value_cell_but_is_condition"
+                else:
+                    original_unit = cell_unit
+                    unit_source = "value_cell"
+                    return original_unit, unit_source, unit_warning
+    
+    # Strategy 3: Check adjacent cells (immediately next to value column)
+    for col_idx in value_columns:
+        # Check cell to the right
+        if col_idx + 1 < len(row_cells):
+            adj_cell = row_cells[col_idx + 1]
+            adj_unit = extract_unit(adj_cell)
+            if adj_unit:
+                # Adjacent cell is a standalone unit - verify it's not a condition
+                if is_condition_cell(adj_cell):
+                    unit_warning = "unit_in_adjacent_cell_but_is_condition"
+                else:
+                    original_unit = adj_unit
+                    unit_source = "adjacent_cell"
+                    return original_unit, unit_source, unit_warning
+        
+        # Check cell to the left
+        if col_idx > 0:
+            adj_cell = row_cells[col_idx - 1]
+            adj_unit = extract_unit(adj_cell)
+            if adj_unit:
+                if is_condition_cell(adj_cell):
+                    unit_warning = "unit_in_adjacent_cell_but_is_condition"
+                else:
+                    original_unit = adj_unit
+                    unit_source = "adjacent_cell"
+                    return original_unit, unit_source, unit_warning
+    
+    # Strategy 4: Source text fallback (lower confidence)
+    # BUT skip condition-related units
+    source_unit = extract_unit(source_text)
+    if source_unit:
+        # Verify it's not a condition unit
+        if is_condition_unit_in_text(source_text, source_unit):
+            unit_source = "source_text_fallback"
+            unit_warning = "unit_from_source_text_but_is_condition_rejected"
+            original_unit = ""  # Reject condition units
+        else:
+            original_unit = source_unit
+            unit_source = "source_text_fallback"
+            unit_warning = "unit_from_source_text_fallback"
+    
+    return original_unit, unit_source, unit_warning
+
+
 def detect_column_structure_conservative(row_cells: List[str], nearby_headers: List[List[str]]) -> Dict[str, int]:
     """
     Detect column structure using CONSERVATIVE header matching.
     
-    Only marks columns as min/typ/max if headers are EXACT matches.
-    Falls back to position-based only if headers are clear.
+    ONLY marks columns as min/typ/max if headers are EXACT matches.
+    NO position-based fallback for min/typ/max when headers are absent.
+    Without reliable headers, caller should mark values as partial/unsafe.
     
     Returns dict mapping column type to column index.
     """
     column_map: Dict[str, int] = {}
     
-    # First, try to detect from nearby headers with EXACT matching
+    # Only use header-based detection for min/typ/max
     for header_row in nearby_headers:
         for col_idx, cell in enumerate(header_row):
             if col_idx in column_map.values():
@@ -290,30 +692,9 @@ def detect_column_structure_conservative(row_cells: List[str], nearby_headers: L
                     break
     
     # If we found headers, use them strictly
-    if column_map:
-        return column_map
-    
-    # Only use position-based detection if NO headers were found
-    # and the row has 6+ columns (likely a data row, not a header)
-    if len(row_cells) >= 6:
-        # Try to detect by common patterns
-        numeric_cols = []
-        for col_idx, cell in enumerate(row_cells):
-            val = parse_number(cell)
-            if val is not None:
-                numeric_cols.append((col_idx, val))
-        
-        # If we have exactly 3 numeric columns, assume Min/Typ/Max
-        if len(numeric_cols) == 3:
-            # Sort by column position
-            numeric_cols.sort(key=lambda x: x[0])
-            column_map['min'] = numeric_cols[0][0]
-            column_map['typ'] = numeric_cols[1][0]
-            column_map['max'] = numeric_cols[2][0]
-        elif len(numeric_cols) == 2:
-            numeric_cols.sort(key=lambda x: x[0])
-            column_map['min'] = numeric_cols[0][0]
-            column_map['max'] = numeric_cols[1][0]
+    # If NO headers found, return empty column_map
+    # DO NOT fall back to position-based min/typ/max detection
+    # Without header, values should be marked as partial/unsafe
     
     return column_map
 
@@ -352,6 +733,37 @@ def unit_sanity_check(field_id: str, original_unit: str) -> Tuple[bool, str]:
     return False, f"unit_mismatch: expected {allowed}, got {original_unit}"
 
 
+def reject_wrong_dimension_unit(
+    field_id: str,
+    extracted_unit: str,
+    unit_source: str,
+    unit_warning: str
+) -> Tuple[str, str, str]:
+    """
+    Step 5.9: Reject wrong-dimension units before they pollute original_unit.
+    
+    If the extracted unit is not in ALLOWED_UNITS for the field, reject it.
+    Returns (rejected_unit, new_unit_source, new_unit_warning).
+    
+    Rejected units are set to empty string, not to the wrong unit.
+    """
+    if not extracted_unit:
+        return extracted_unit, unit_source, unit_warning
+    
+    allowed = ALLOWED_UNITS.get(field_id, set())
+    if not allowed:
+        # No restrictions defined, allow the unit
+        return extracted_unit, unit_source, unit_warning
+    
+    normalized = normalize_unit(extracted_unit)
+    if normalized in allowed:
+        # Unit is acceptable
+        return extracted_unit, unit_source, unit_warning
+    
+    # Unit is wrong dimension - REJECT it
+    return "", f"rejected_wrong_dimension:{unit_source}", f"rejected_wrong_dimension:{extracted_unit}"
+
+
 def parse_candidate_values(candidates: List[RawExtractedParam], extracted_pdfs: List[Dict[str, Any]] = None) -> List[RawExtractedParam]:
     """
     Parse values from active candidates with quality safeguards.
@@ -374,6 +786,9 @@ def parse_candidate_values(candidates: List[RawExtractedParam], extracted_pdfs: 
         parse_quality = "medium"
         parse_warnings: List[str] = []
         unit_sanity_status = "ok"
+        # Step 5.8: Track numeric tokens and value source columns
+        numeric_tokens_detected: List[float] = []
+        value_source_columns: List[str] = []
         
         # Skip if no row_cells available
         if not candidate.row_cells:
@@ -395,6 +810,22 @@ def parse_candidate_values(candidates: List[RawExtractedParam], extracted_pdfs: 
         nearby_headers = candidate.nearby_header_rows
         source_text = candidate.source_text
         field_id = candidate.field_id
+        
+        # Step 5.9: Reject figure/caption rows early
+        if is_figure_or_caption_row(source_text, row_cells):
+            candidate.value = None
+            candidate.min = None
+            candidate.typ = None
+            candidate.max = None
+            candidate.original_unit = ""
+            candidate.unit_source = "not_found"
+            candidate.unit_warning = "figure_caption_rejected"
+            candidate.parse_status = "failed"
+            candidate.parse_quality = "low"
+            review_reasons = ["figure_caption_not_parameter_row"]
+            candidate.review_reason = "; ".join(review_reasons)
+            parsed_params.append(candidate)
+            continue
         
         # Detect column structure CONSERVATIVELY
         column_map = detect_column_structure_conservative(row_cells, nearby_headers)
@@ -425,6 +856,9 @@ def parse_candidate_values(candidates: List[RawExtractedParam], extracted_pdfs: 
                     parsed_typ = pv.value
                     if pv.original_unit:
                         original_unit = pv.original_unit
+                    # Step 5.8: Track tokens and source
+                    numeric_tokens_detected.append(pv.value)
+                    value_source_columns.append("typ_column")
         
         if 'min' in column_map:
             min_cell = row_cells[column_map['min']]
@@ -434,6 +868,9 @@ def parse_candidate_values(candidates: List[RawExtractedParam], extracted_pdfs: 
                     parse_warnings.append("min_value_may_be_from_condition")
                 else:
                     parsed_min = pv.value
+                    # Step 5.8: Track tokens and source
+                    numeric_tokens_detected.append(pv.value)
+                    value_source_columns.append("min_column")
         
         if 'max' in column_map:
             max_cell = row_cells[column_map['max']]
@@ -444,34 +881,124 @@ def parse_candidate_values(candidates: List[RawExtractedParam], extracted_pdfs: 
                     review_reasons.append("value_column_suspect")
                 else:
                     parsed_max = pv.value
+                    # Step 5.8: Track tokens and source
+                    numeric_tokens_detected.append(pv.value)
+                    value_source_columns.append("max_column")
         
         # If no structured values found, try fallback but with warnings
         if parsed_typ is None and parsed_min is None and parsed_max is None:
-            numbers_in_text = re.findall(NUMERIC_PATTERN, source_text)
-            if numbers_in_text:
-                # Try to filter out condition numbers
-                valid_numbers = []
-                for num_str in numbers_in_text:
-                    try:
-                        num_val = float(num_str)
-                        if not has_condition_numeric(condition_values, num_val):
-                            valid_numbers.append(num_val)
-                    except ValueError:
-                        pass
+            # Step 5.9: Try parse_range_from_cells first (handles split-cell ranges)
+            range_result = parse_range_from_cells(row_cells, source_text)
+            
+            # Check for slash-list in row cells
+            slash_cell = None
+            for cell in row_cells:
+                if is_slash_list_text(cell):
+                    slash_cell = cell
+                    break
+            
+            # Handle range result from parse_range_from_cells
+            if range_result:
+                range_min = range_result["min"]
+                range_max = range_result["max"]
+                range_unit = range_result.get("unit") or ""
+                range_source = range_result.get("source", "range_cells")
                 
-                if valid_numbers:
-                    parsed_value = valid_numbers[0]
-                    parse_warnings.append("value_from_text_fallback")
+                # vgs_th special handling: use range values directly
+                if field_id == 'vgs_th':
+                    parsed_min = range_min
+                    parsed_max = range_max
+                    parsed_value = None  # Clear any fallback value
+                    parse_status = "parsed"
+                    parse_quality = "high"
+                    parse_warnings.append(f"range_parsed_from_{range_source}")
+                    # Set unit from range if found
+                    if range_unit:
+                        original_unit = range_unit
+                    # Track range values and mark source
+                    numeric_tokens_detected.extend([range_min, range_max])
+                    value_source_columns.append(f"range_from_{range_source}")
+                # junction_temperature: use min/max directly (existing behavior)
+                elif field_id == 'junction_temperature':
+                    parsed_min = range_min
+                    parsed_max = range_max
+                    parse_status = "parsed"
+                    parse_quality = "high"
+                    parse_warnings.append(f"range_parsed_from_{range_source}")
+                    numeric_tokens_detected.extend([range_min, range_max])
+                    value_source_columns.append(f"range_from_{range_source}")
+                else:
+                    # Other fields: mark as partial but still report range
+                    parsed_min = range_min
+                    parsed_max = range_max
+                    parse_status = "partial"
+                    parse_quality = "low"
+                    review_reasons.append("range_value_needs_review")
+                    numeric_tokens_detected.extend([range_min, range_max])
+                    value_source_columns.append(f"range_from_{range_source}")
+            # Handle slash-list text specially (Step 5.8: don't take first number as safe value)
+            elif slash_cell:
+                slash_values = parse_slash_values(slash_cell)
+                if slash_values:
+                    parse_status = "partial"
+                    parse_quality = "low"
+                    review_reasons.append("slash_list_value_needs_review")
+                    # Step 5.8: Track slash values in numeric_tokens_detected
+                    numeric_tokens_detected.extend(slash_values)
+                    value_source_columns.append("slash_list_detected")
+                    parse_warnings.append(f"slash_list_values: {slash_values}")
+                else:
+                    parse_status = "failed"
+                    review_reasons.append("slash_list_detected_but_not_parsed")
+            # Regular fallback for plain numbers
+            else:
+                numbers_in_text = re.findall(NUMERIC_PATTERN, source_text)
+                if numbers_in_text:
+                    # Try to filter out condition numbers
+                    valid_numbers = []
+                    for num_str in numbers_in_text:
+                        try:
+                            num_val = float(num_str)
+                            if not has_condition_numeric(condition_values, num_val):
+                                valid_numbers.append(num_val)
+                        except ValueError:
+                            pass
+                    
+                    if valid_numbers:
+                        parsed_value = valid_numbers[0]
+                        parse_status = "partial"  # Fallback is partial quality
+                        parse_quality = "low"
+                        parse_warnings.append("value_from_text_fallback")
+                        # Step 5.8: Track all valid numbers and source
+                        numeric_tokens_detected.extend(valid_numbers)
+                        value_source_columns.append("source_text_fallback")
+                        if not headers_found:
+                            review_reasons.append("no_reliable_header")
+                    else:
+                        parse_status = "failed"
+                        review_reasons.append("no_value_parsed_non_condition")
                 else:
                     parse_status = "failed"
                     review_reasons.append("no_value_parsed")
-            else:
-                parse_status = "failed"
-                review_reasons.append("no_value_parsed")
         
-        # Extract unit from source_text if not found in cells
-        if not original_unit:
-            original_unit = extract_unit(source_text)
+        # ========== Unit Extraction with Source Tracking (Step 5.8) ==========
+        # Use conservative method: unit_column > value_cell > adjacent_cell > source_text_fallback
+        unit_from_extraction, unit_source, unit_warning = extract_unit_for_param(
+            field_id, row_cells, column_map, source_text, condition_values
+        )
+        # Step 5.9: Reject wrong-dimension units before they pollute original_unit
+        rejected_unit, unit_source, unit_warning = reject_wrong_dimension_unit(
+            field_id, unit_from_extraction, unit_source, unit_warning
+        )
+        if rejected_unit:
+            original_unit = rejected_unit
+        else:
+            original_unit = ""
+        # Track unit source for debugging (Step 5.8)
+        candidate.unit_source = unit_source
+        candidate.unit_warning = unit_warning
+        if unit_warning:
+            parse_warnings.append(unit_warning)
         
         # ========== Unit Sanity Check (Step 5.5) ==========
         if original_unit:
@@ -591,6 +1118,9 @@ def parse_candidate_values(candidates: List[RawExtractedParam], extracted_pdfs: 
         candidate.condition = condition_str
         # Store condition_values for debugging
         candidate.condition_values = condition_values
+        # Step 5.8: Store numeric tokens and value source columns
+        candidate.numeric_tokens_detected = numeric_tokens_detected
+        candidate.value_source_columns = value_source_columns
         
         # Set unit conversion status
         if original_unit == candidate.unit or not original_unit:
@@ -601,6 +1131,12 @@ def parse_candidate_values(candidates: List[RawExtractedParam], extracted_pdfs: 
         # Set review_reason
         if review_reasons:
             candidate.review_reason = _add_review_reason(candidate.review_reason, "; ".join(review_reasons))
+        
+        # Write parse quality fields (Step 5.5)
+        candidate.parse_status = parse_status
+        candidate.parse_quality = parse_quality
+        candidate.parse_warning = "; ".join(parse_warnings) if parse_warnings else ""
+        candidate.unit_sanity_status = unit_sanity_status
         
         parsed_params.append(candidate)
     
@@ -817,7 +1353,7 @@ def params_to_debug_json(parsed_params: List[RawExtractedParam], candidates: Lis
     }
 
 
-def generate_value_parse_audit(parsed_params: List[RawExtractedParam], candidates: List[RawExtractedParam]) -> str:
+def generate_value_parse_audit(parsed_params: List[RawExtractedParam], candidates: List[RawExtractedParam], target_field_ids: List[str] = None) -> str:
     """
     Generate value parsing audit markdown report with Step 5.5 sections.
     """
@@ -878,19 +1414,42 @@ def generate_value_parse_audit(parsed_params: List[RawExtractedParam], candidate
             unit_mismatch_fields.add(p.field_id)
     
     lines = []
-    lines.append("# Value Parse Audit (Step 5.5)")
+    lines.append("# Value Parse Audit (Step 5.9)")
     lines.append("")
     
     # Section 0: Field ID Validation (Step 5.5)
     lines.append("## 0. Field ID Validation")
     lines.append("")
     all_param_field_ids = set(by_field.keys())
+    
+    # Real validation against target_field_ids
+    if target_field_ids is None:
+        # No target provided - cannot validate
+        target_set = all_param_field_ids
+        invalid_field_ids = set()
+        missing_from_parsed = set()
+        validation_status = "UNKNOWN (no target_field_ids provided)"
+    else:
+        target_set = set(target_field_ids)
+        invalid_field_ids = all_param_field_ids - target_set  # IDs in params but not in target
+        missing_from_parsed = target_set - all_param_field_ids  # IDs in target but not in params
+        if invalid_field_ids:
+            validation_status = "FAIL"
+        elif missing_from_parsed:
+            validation_status = "WARN (some target fields not in parsed)"
+        else:
+            validation_status = "PASS"
+    
     lines.append(f"| Metric | Value |")
     lines.append(f"|--------|-------|")
     lines.append(f"| Total unique field_ids | {len(all_param_field_ids)} |")
-    lines.append(f"| Invalid field_ids | 0 |")
-    lines.append(f"| Missing from config | 2 (manufacturer, rth_jc) |")
-    lines.append(f"| Validation status | **PASS** |")
+    lines.append(f"| Invalid field_ids | {len(invalid_field_ids)} |")
+    if invalid_field_ids:
+        lines.append(f"| Invalid IDs list | {', '.join(sorted(invalid_field_ids))} |")
+    lines.append(f"| Missing from parsed | {len(missing_from_parsed)} |")
+    if missing_from_parsed:
+        lines.append(f"| Missing IDs list | {', '.join(sorted(missing_from_parsed))} |")
+    lines.append(f"| Validation status | **{validation_status}** |")
     lines.append("")
     
     # Section 1: Overview
@@ -1051,7 +1610,7 @@ def generate_value_parse_audit(parsed_params: List[RawExtractedParam], candidate
             lines.append(f"- Review: {review_display}")
             lines.append("")
     
-    # Section 4: VGS(th) Check (Step 5.5)
+    # Section 4: VGS(th) Check (Step 5.5, updated Step 5.9)
     lines.append("## 4. VGS(th) Check")
     lines.append("")
     
@@ -1059,22 +1618,33 @@ def generate_value_parse_audit(parsed_params: List[RawExtractedParam], candidate
         vgs_params = by_field['vgs_th']
         lines.append(f"Total: {len(vgs_params)} candidates")
         lines.append("")
-        lines.append(f"| Page | Table | Row | min | typ | max | value | Unit | Condition | Review |")
-        lines.append(f"|------|-------|-----|-----|-----|-----|-------|------|----------|--------|")
+        lines.append(f"| Page | Table | min | max | value | Unit | unit_source | parse_status | parse_quality | Review |")
+        lines.append(f"|------|-------|-----|-----|-------|------|-------------|--------------|-------|")
         
         for p in vgs_params:
-            lines.append(f"| {p.source_page} | {p.table_index} | {p.row_index} | {p.min} | {p.typ} | {p.max} | {p.value} | {p.original_unit} | {p.condition[:30] if p.condition else '-'} | {p.review_reason[:50] if p.review_reason else '-'} |")
+            unit_src = getattr(p, 'unit_source', '') or '-'
+            num_tokens = getattr(p, 'numeric_tokens_detected', []) or []
+            val_src_cols = getattr(p, 'value_source_columns', []) or []
+            min_val = p.min if p.min is not None else '-'
+            max_val = p.max if p.max is not None else '-'
+            val_val = p.value if p.value is not None else '-'
+            lines.append(f"| {p.source_page} | {p.row_index} | {min_val} | {max_val} | {val_val} | {p.original_unit} | {unit_src} | {getattr(p, 'parse_status', '-')} | {getattr(p, 'parse_quality', '-')} | {(p.review_reason or '-')[:60]} |")
         
         lines.append("")
-        lines.append("**Examples with source_text:**")
+        lines.append("**Details with source_text and range info (Step 5.9):**")
         lines.append("")
         
         for p in vgs_params:
             source_text = p.source_text[:200] + "..." if len(p.source_text) > 200 else p.source_text
+            num_tokens = getattr(p, 'numeric_tokens_detected', []) or []
+            val_src_cols = getattr(p, 'value_source_columns', []) or []
             lines.append(f"**Page {p.source_page}, Row {p.row_index}**: \"{source_text}\"")
-            lines.append(f"- min={p.min}, typ={p.typ}, max={p.max}, value={p.value}")
-            lines.append(f"- unit={p.original_unit}, condition={p.condition}")
-            lines.append(f"- review={p.review_reason}")
+            lines.append(f"- min={p.min}, max={p.max}, value={p.value}")
+            lines.append(f"- unit={p.original_unit}, unit_source={getattr(p, 'unit_source', '-')}, unit_warning={getattr(p, 'unit_warning', '-')}")
+            lines.append(f"- numeric_tokens_detected={num_tokens}")
+            lines.append(f"- value_source_columns={val_src_cols}")
+            lines.append(f"- condition={p.condition}")
+            lines.append(f"- review_reason={p.review_reason}")
             lines.append("")
     else:
         lines.append("*No vgs_th candidates found.*")
@@ -1109,5 +1679,204 @@ def generate_value_parse_audit(parsed_params: List[RawExtractedParam], candidate
             if p.review_reason:
                 lines.append(f"- Review: {p.review_reason}")
             lines.append("")
+    
+    # ========== Step 5.8: New Audit Sections ==========
+    
+    # Section 6: Unit Source Summary (Step 5.8)
+    lines.append("## 6. Unit Source Summary")
+    lines.append("")
+    unit_source_counts = {"unit_column": 0, "value_cell": 0, "adjacent_cell": 0, "source_text_fallback": 0, "not_found": 0, "rejected_wrong_dimension": 0}
+    wrong_dim_rejected_by_field = {}
+    for p in parsed_params:
+        src = getattr(p, 'unit_source', '') or 'not_found'
+        if 'rejected_wrong_dimension' in src:
+            unit_source_counts['rejected_wrong_dimension'] += 1
+            fid = p.field_id
+            if fid not in wrong_dim_rejected_by_field:
+                wrong_dim_rejected_by_field[fid] = 0
+            wrong_dim_rejected_by_field[fid] += 1
+        elif src in unit_source_counts:
+            unit_source_counts[src] += 1
+        else:
+            unit_source_counts['not_found'] += 1
+    lines.append(f"| Unit Source | Count |")
+    lines.append(f"|-------------|-------|")
+    for src, count in unit_source_counts.items():
+        lines.append(f"| {src} | {count} |")
+    lines.append("")
+    if wrong_dim_rejected_by_field:
+        lines.append(f"**Wrong dimension rejected by field**: {dict(wrong_dim_rejected_by_field)}")
+        lines.append("")
+    
+    # Section 7: Condition Unit Exclusion Summary (Step 5.8)
+    lines.append("## 7. Condition Unit Exclusion Summary")
+    lines.append("")
+    condition_rejected_count = 0
+    condition_rejected_fields = set()
+    for p in parsed_params:
+        uw = getattr(p, 'unit_warning', '') or ''
+        if 'condition' in uw.lower() or 'condition_rejected' in uw.lower():
+            condition_rejected_count += 1
+            condition_rejected_fields.add(p.field_id)
+    lines.append(f"| Metric | Count |")
+    lines.append(f"|--------|-------|")
+    lines.append(f"| Params with condition units rejected | {condition_rejected_count} |")
+    lines.append(f"| Fields affected | {len(condition_rejected_fields)} |")
+    if condition_rejected_fields:
+        lines.append(f"| Field list | {', '.join(sorted(condition_rejected_fields))} |")
+    lines.append("")
+    
+    # Section 8: Range Parsing Summary (Step 5.8)
+    lines.append("## 8. Range Parsing Summary")
+    lines.append("")
+    range_params = [p for p in parsed_params if hasattr(p, 'value_source_columns') and 'range_text' in (p.value_source_columns or [])]
+    if range_params:
+        lines.append(f"| Field ID | Page | min | max | Unit | Condition | Review |")
+        lines.append(f"|----------|------|-----|-----|------|----------|--------|")
+        for p in range_params[:10]:
+            lines.append(f"| {p.field_id} | {p.source_page} | {p.min} | {p.max} | {p.original_unit} | {p.condition[:30] if p.condition else '-'} | {p.review_reason[:50] if p.review_reason else '-'} |")
+        lines.append("")
+    else:
+        lines.append("*No range values detected.*")
+        lines.append("")
+    
+    # Section 9: Slash-list Summary (Step 5.8)
+    lines.append("## 9. Slash-list Summary")
+    lines.append("")
+    slash_params = [p for p in parsed_params if hasattr(p, 'value_source_columns') and 'slash_list_detected' in (p.value_source_columns or [])]
+    if slash_params:
+        lines.append(f"| Field ID | Page | numeric_tokens | Source | Review |")
+        lines.append(f"|----------|------|---------------|--------|--------|")
+        for p in slash_params[:10]:
+            tokens = getattr(p, 'numeric_tokens_detected', []) or []
+            tokens_str = ', '.join(str(t) for t in tokens[:5])
+            lines.append(f"| {p.field_id} | {p.source_page} | [{tokens_str}] | slash_list | {p.review_reason[:50] if p.review_reason else '-'} |")
+        lines.append("")
+    else:
+        lines.append("*No slash-list values detected.*")
+        lines.append("")
+    
+    # Section 10: Clearance/Creepage T-T/T-B Check (Step 5.8)
+    lines.append("## 10. Clearance/Creepage T-T/T-B Check")
+    lines.append("")
+    clearance_creepage_fields = ['clearance_tt', 'clearance_tb', 'creepage_tt', 'creepage_tb']
+    tt_tb_data = {}
+    for fid in clearance_creepage_fields:
+        if fid in by_field:
+            tt_tb_data[fid] = by_field[fid]
+    if tt_tb_data:
+        lines.append(f"| Field ID | Count | Accepted TT | Accepted TB | Mismatch | Condition Unclear |")
+        lines.append(f"|----------|-------|-------------|-------------|----------|-------------------|")
+        for fid, params in tt_tb_data.items():
+            accepted_tt = 0
+            accepted_tb = 0
+            mismatch = 0
+            unclear = 0
+            for p in params:
+                rr = (p.review_reason or '').lower()
+                if 'condition_type_mismatch' in rr:
+                    mismatch += 1
+                elif 'condition_unclear' in rr:
+                    unclear += 1
+                elif 'tt' in fid:
+                    accepted_tt += 1
+                elif 'tb' in fid:
+                    accepted_tb += 1
+            total = len(params)
+            lines.append(f"| {fid} | {total} | {accepted_tt} | {accepted_tb} | {mismatch} | {unclear} |")
+        lines.append("")
+        lines.append("**Detail:**")
+        lines.append("")
+        for fid, params in tt_tb_data.items():
+            lines.append(f"### {fid}")
+            lines.append("")
+            for p in params:
+                source_text = p.source_text[:150] + "..." if len(p.source_text) > 150 else p.source_text
+                condition = p.condition[:80] if p.condition else '(no condition)'
+                rr = p.review_reason[:100] if p.review_reason else '-'
+                lines.append(f"- Page {p.source_page}, Table {p.table_index}, Row {p.row_index}")
+                lines.append(f"  - Value: {p.value} {p.original_unit}")
+                lines.append(f"  - Condition: {condition}")
+                lines.append(f"  - Review: {rr}")
+                lines.append(f"  - Source: \"{source_text}\"")
+                lines.append("")
+    else:
+        lines.append("*No clearance/creepage candidates found.*")
+        lines.append("")
+    
+    # ========== Step 5.9: New Audit Sections ==========
+    
+    # Section 11: Figure/Caption Rejection Summary (Step 5.9)
+    lines.append("## 11. Figure/Caption Rejection Summary (Step 5.9)")
+    lines.append("")
+    figure_rejected_params = []
+    for p in parsed_params:
+        rr = (p.review_reason or '').lower()
+        if 'figure_caption_not_parameter_row' in rr:
+            figure_rejected_params.append(p)
+    
+    if figure_rejected_params:
+        lines.append(f"**Total rejected: {len(figure_rejected_params)}**")
+        lines.append("")
+        lines.append(f"| Field ID | Page | Row | source_text |")
+        lines.append(f"|----------|------|-----|-------------|")
+        for p in figure_rejected_params:
+            src = p.source_text[:100] + "..." if len(p.source_text) > 100 else p.source_text
+            lines.append(f"| {p.field_id} | {p.source_page} | {p.row_index} | {src} |")
+        lines.append("")
+    else:
+        lines.append("*No figure/caption rows rejected.*")
+        lines.append("")
+    
+    # Section 12: Wrong Dimension Unit Rejection Summary (Step 5.9)
+    lines.append("## 12. Wrong Dimension Unit Rejection Summary (Step 5.9)")
+    lines.append("")
+    wrong_dim_rejected = []
+    for p in parsed_params:
+        uw = getattr(p, 'unit_warning', '') or ''
+        if 'rejected_wrong_dimension' in uw:
+            wrong_dim_rejected.append(p)
+    
+    lines.append(f"| Metric | Count |")
+    lines.append(f"|--------|-------|")
+    lines.append(f"| Total wrong dimension rejected | {len(wrong_dim_rejected)} |")
+    lines.append("")
+    
+    # Group by field
+    by_field_wrong_dim = {}
+    for p in wrong_dim_rejected:
+        fid = p.field_id
+        if fid not in by_field_wrong_dim:
+            by_field_wrong_dim[fid] = []
+        by_field_wrong_dim[fid].append(p)
+    
+    if by_field_wrong_dim:
+        lines.append(f"| Field ID | Count | Rejected Units |")
+        lines.append(f"|----------|-------|----------------|")
+        for fid, params in sorted(by_field_wrong_dim.items()):
+            rejected_units = set()
+            for p in params:
+                uw = getattr(p, 'unit_warning', '') or ''
+                # Extract the rejected unit from warning like "rejected_wrong_dimension:mΩ"
+                if ':' in uw:
+                    rejected_units.add(uw.split(':')[1])
+            lines.append(f"| {fid} | {len(params)} | {', '.join(sorted(rejected_units))} |")
+        lines.append("")
+        
+        lines.append("**Detail:**")
+        lines.append("")
+        for fid, params in sorted(by_field_wrong_dim.items()):
+            lines.append(f"### {fid}")
+            lines.append("")
+            for p in params:
+                uw = getattr(p, 'unit_warning', '') or '-'
+                src = p.source_text[:120] + "..." if len(p.source_text) > 120 else p.source_text
+                lines.append(f"- Page {p.source_page}, Row {p.row_index}: unit_warning={uw}")
+                lines.append(f"  - source_text: \"{src}\"")
+                lines.append(f"  - value={p.value}, unit_source={getattr(p, 'unit_source', '-')}")
+                lines.append("")
+    else:
+        lines.append("*No wrong dimension units rejected.*")
+        lines.append("")
     
     return "\n".join(lines)

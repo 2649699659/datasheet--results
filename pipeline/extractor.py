@@ -96,19 +96,6 @@ def is_table_empty(table: List[List[str]]) -> bool:
     return True
 
 
-def extract_pdf(pdf_path: str) -> Dict[str, Any]:
-    """
-    Extract all content from a single PDF file.
-    
-    Args:
-        pdf_path: Path to PDF file
-        
-    Returns:
-        Dict with pdf_path, file_name, metadata, pages
-    """
-    return pdfplumber_extract_all(pdf_path)
-
-
 def extract_pdfs_from_directory(input_path: str) -> List[Dict[str, Any]]:
     """
     Extract all PDFs from a directory.

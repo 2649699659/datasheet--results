@@ -175,8 +175,8 @@ def find_best_match(aliases: List[str], row_text: str) -> Tuple[Optional[str], O
         if not is_short_alias(alias):
             is_match, score = check_fuzzy_match(alias, row_text)
             if is_match:
-                if best_result is None or CONFIDENCE_FUZZ > best_result[2]:
-                    best_result = (alias, MATCH_FUZZ, CONFIDENCE_FUZZ)
+                if best_result is None or CONFIDENCE_FUZZY > best_result[2]:
+                    best_result = (alias, MATCH_FUZZ, CONFIDENCE_FUZZY)
     
     if best_result:
         return best_result[0], best_result[1], best_result[2]
@@ -413,11 +413,18 @@ def get_review_reason(field_id: str, row_text: str, matched_alias: str, match_ty
     """
     row_lower = row_text.lower()
     
-    # Clearance/Creepage condition check
+    # Clearance/Creepage condition check (Step 5.8 - stricter T-T/T-B matching)
     if field_id in ("clearance_tt", "clearance_tb", "creepage_tt", "creepage_tb"):
         tt_mentioned = "t-t" in row_lower or "terminal to terminal" in row_lower
         tb_mentioned = "t-b" in row_lower or "terminal to baseplate" in row_lower or "baseplate" in row_lower
         
+        # Check for T-T/T-B mismatch
+        if field_id.endswith("_tt") and tb_mentioned and not tt_mentioned:
+            return "condition_type_mismatch: field=_tt but row has T-B"
+        if field_id.endswith("_tb") and tt_mentioned and not tb_mentioned:
+            return "condition_type_mismatch: field=_tb but row has T-T"
+        
+        # Check for condition unclear (no T-T or T-B mentioned at all)
         if field_id.endswith("_tt") and not tt_mentioned and not tb_mentioned:
             return "condition_unclear: clearance/creepage T-T unspecified"
         if field_id.endswith("_tb") and not tt_mentioned and not tb_mentioned:

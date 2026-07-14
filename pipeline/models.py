@@ -81,6 +81,8 @@ class RawExtractedParam:
     unit: str = ""               # Final/normalized unit
     original_unit: str = ""      # Unit as it appeared in PDF
     normalized_unit: str = ""     # Unit after normalization
+    unit_source: str = ""        # Step 5.8: unit source (unit_column, value_cell, adjacent_cell, source_text_fallback, not_found)
+    unit_warning: str = ""        # Step 5.8: unit extraction warnings
     
     # ========== Source Evidence ==========
     source_page: int = 0
@@ -119,6 +121,14 @@ class RawExtractedParam:
     # ========== Review Information ==========
     review_reason: str = ""      # Why it needs review
     
+    # ========== Parse Quality (Step 5.5) ==========
+    parse_status: str = ""      # "parsed", "partial", "unsafe", "failed"
+    parse_quality: str = ""      # "high", "medium", "low"
+    parse_warning: str = ""      # Additional parse warnings
+    unit_sanity_status: str = "" # "ok", "missing", "mismatch", "not_checked"
+    numeric_tokens_detected: List[float] = field(default_factory=list)  # All numbers found during parsing
+    value_source_columns: List[str] = field(default_factory=list)  # Which column types values came from
+    
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -146,6 +156,8 @@ class RawExtractedParam:
             "unit": self.unit,
             "original_unit": self.original_unit,
             "normalized_unit": self.normalized_unit,
+            "unit_source": self.unit_source,  # Step 5.8
+            "unit_warning": self.unit_warning,  # Step 5.8
             # Parameter Value (Step 5)
             "normalized_value": self.normalized_value,
             # Source Evidence
@@ -180,6 +192,13 @@ class RawExtractedParam:
             "candidate_status": self.candidate_status,
             # Alias (for compatibility)
             "matched_alias": self.symbol,
+            # Parse Quality (Step 5.5)
+            "parse_status": self.parse_status,
+            "parse_quality": self.parse_quality,
+            "parse_warning": self.parse_warning,
+            "unit_sanity_status": self.unit_sanity_status,
+            "numeric_tokens_detected": self.numeric_tokens_detected,
+            "value_source_columns": self.value_source_columns,
         }
     
     @classmethod
@@ -223,6 +242,8 @@ class RawExtractedParam:
             unit=data.get("unit", ""),
             original_unit=data.get("original_unit", ""),
             normalized_unit=data.get("normalized_unit", ""),
+            unit_source=data.get("unit_source", ""),  # Step 5.8
+            unit_warning=data.get("unit_warning", ""),  # Step 5.8
             # Source Evidence
             source_page=data.get("source_page", 0),
             table_index=data.get("table_index", -1),
@@ -254,6 +275,13 @@ class RawExtractedParam:
             accept_reason=data.get("accept_reason", ""),
             reject_reason=data.get("reject_reason", ""),
             candidate_status=data.get("candidate_status", "active"),
+            # Parse Quality (Step 5.5)
+            parse_status=data.get("parse_status", ""),
+            parse_quality=data.get("parse_quality", ""),
+            parse_warning=data.get("parse_warning", ""),
+            unit_sanity_status=data.get("unit_sanity_status", ""),
+            numeric_tokens_detected=data.get("numeric_tokens_detected", []),
+            value_source_columns=data.get("value_source_columns", []),
         )
 
 
