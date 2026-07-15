@@ -8,9 +8,9 @@
 
 ## 项目阶段
 
-**当前阶段：Step 7.5 - Excel Writer v0 (Condition Fidelity)**
+**当前阶段：Step 8 - Camelot Backend Integration**
 
-此阶段在 Excel Writer v0 基础上增加条件列显示，从 source_text 提取并规范化 VDS、VGS、ID、TC、Load、R 等条件参数。Final Comparison sheet 有 per-document 的 Value / Condition / Page 三列，Review Needed / Blocked / Source Evidence 均有 Condition 列。
+集成了 Camelot 作为表格提取后端，支持 `--backend pdfplumber|camelot` 参数（默认 pdfplumber）。Camelot lattice 模式能更干净地提取表格（Test Conditions 列完整保留）。两个 backend 产生相同的 5 个 final_candidate 结果。
 
 ### 当前生成的输出文件
 
@@ -56,11 +56,15 @@ python3 main.py --validate-config
 # 测试单位转换
 python3 main.py --test-units
 
-# 完整 debug pipeline
+# 完整 pipeline (pdfplumber backend，默认)
 python3 main.py --pdf tests/sample_datasheets/ASC300N1200ME3.pdf --output output/final_comparison.xlsx
-```
 
-注意：指定 `--output output/final_comparison.xlsx` 会生成 Excel（Step 7+ 已实现）。
+# Camelot backend (更干净的表格提取)
+python3 main.py --pdf tests/sample_datasheets/ASC300N1200ME3.pdf --output output/final_comparison.xlsx --backend camelot
+
+# 后端对比 (实验)
+python3 experiments/backend_compare.py tests/sample_datasheets/ASC300N1200ME3.pdf
+```
 
 ## 项目结构
 
@@ -72,20 +76,25 @@ datasheet-extractor-rebuild/
 ├── config/
 │   └── target_fields.yaml    # 目标字段配置 (30 个字段)
 ├── pipeline/
-│   ├── extractor.py          # PDF 提取层 (pdfplumber)
+│   ├── extractor.py          # PDF 提取层 (pdfplumber，后向兼容)
 │   ├── parser.py             # 候选行匹配层
 │   ├── models.py             # 数据模型
 │   ├── value_parser.py       # 值解析层
 │   ├── final_selector.py     # Final Selector v1 (document-based)
 │   ├── llm_agent.py          # [stub] LLM 增强层
 │   └── post_processor.py     # [stub] 最终值选择层
+├── extractors/              # [NEW] 可插拔后端系统
+│   ├── base.py              # ExtractedTable/ExtractedPage/ExtractedDocument 数据模型
+│   ├── pdfplumber_backend.py # pdfplumber 后端实现
+│   ├── camelot_backend.py    # Camelot v2 后端 + 质量评分
+│   └── converters.py         # 格式转换 + extract_with_backend() 调度器
 ├── utils/
 │   ├── pdf_utils.py          # PDF 底层工具
 │   ├── table_normalizer.py   # 表格清洗
 │   ├── config_loader.py      # 配置加载
 │   ├── unit_converter.py     # 单位换算
 │   ├── condition_parser.py   # [stub] 条件解析
-│   └── excel_writer.py       # [stub] Excel 输出
+│   └── excel_writer.py       # Excel 输出 (Step 7)
 ├── output/                   # 输出目录 (debug 文件)
 ├── tests/
 │   └── sample_datasheets/    # 测试用 PDF
@@ -105,6 +114,7 @@ datasheet-extractor-rebuild/
 | `table_normalizer.py` | 清洗空行空列，保留结构 |
 | `config_loader.py` | target_fields.yaml 加载和验证 |
 | `unit_converter.py` | 单位换算 (当前禁用) |
+| `extractors/` | 可插拔表格后端 (pdfplumber/camelot) |
 
 ## 配置字段
 
