@@ -208,120 +208,149 @@ _GENERIC_KEY_SUPPRESSES: Dict[str, str] = {
 
 def _extract_condition_from_text(src: str) -> str:
     """
-    Extract condition key=value pairs from raw source text.
-    
+    Extract condition key=value pairs from raw source text using finditer().
+
     Returns a "; "-joined string of conditions, e.g.:
     "VGS=18V; ID=150A; TC=25°C"
-    
+
     Features:
-    - Specific keys before generic: VGS before V, ID before I
-    - Units preserved: °C, A, V, Ω, µH, Hz
-    - Generic key suppression: if VGS found, don't add V
-    - Split key normalization: V GS → VGS, I D → ID
-    - Source text order preserved (first match wins per key)
+    - Uses finditer() to find ALL matches (not just first)
+    - Maintains source text order
+    - Prioritizes specific keys (ID, IF, TC, TJ, RG, etc.) over generic keys (I, T, R)
+    - Skips generic key if specific version already extracted
+    - V→VGS upgrade when GS appears in text (first V only)
+    - Units preserved from source: mA, °C, Ω, etc.
+    - Split key normalization handled by _normalize_for_condition
     """
     if not src or len(src) > 2000:
         return ""
 
     normalized = _normalize_for_condition(src)
+    norm_lower = normalized.lower()
 
-    parts: List[str] = []
-    seen: set = set()
-    suppressed_generics: set = set()
+    # Collect all matches using finditer()
+    # Tuple: (position, key_lower, display_key, value_str, is_generic)
+    all_matches: List[tuple] = []
 
     # --- Static keywords (check in normalized text) ---
-    norm_lower = normalized.lower()
     for kw in ("Terminal to Terminal", "Terminal to Baseplate"):
         if kw.lower() in norm_lower:
-            parts.append(kw)
-            seen.add(kw.lower())
+            all_matches.append((0, kw.lower(), kw, "", False))
+            break
 
     # --- VDS=VGS special case ---
-    # Matches "V =V ;" or "V=V ;" in source. When present, suppress generic V at the same position.
-    vds_vgs_pos = -1  # default: no VDS=VGS found
-    vds_vgs_match = re.search(r"\bV\s*=\s*V\s*;", norm_lower, re.IGNORECASE)
-    if vds_vgs_match:
-        parts.append("VDS=VGS")
-        seen.add("vds=vgs")
-        suppressed_generics.add("V")  # suppress generic V pattern
-        vds_vgs_pos = vds_vgs_match.start()  # remember position to skip
+    vds_vgs_m = re.search(r"\bV\s*=\s*V\s*;", norm_lower, re.IGNORECASE)
+    if vds_vgs_m:
+        all_matches.append((vds_vgs_m.start(), "vds=vgs", "VDS=VGS", "", False))
 
-    # --- Dynamic patterns (ordered by specificity) ---
+    # --- Dynamic patterns: use finditer() to find ALL matches ---
+    generic_key_set = {"V", "I", "T", "R", "L"}
+
     for cp in _COND_PATTERNS:
-        key_lower = cp.key.lower()
+        is_generic = cp.key in generic_key_set
+        for m in cp.pattern.finditer(normalized):
+            val = m.group(1)
+            # For generic keys (I, T, R), extract actual unit from source
+            if cp.key in ("I", "T", "R"):
+                full_match = m.group(0)
+                after_eq = full_match.split("=")[-1].strip()
+                value_str = after_eq
+            else:
+                value_str = f"{val}{cp.unit}"
+            all_matches.append((m.start(), cp.key.lower(), cp.key, value_str, is_generic))
 
-        # Skip if this key or its generic was already found
-        if key_lower in seen:
-            continue
-        if cp.key in suppressed_generics:
+    # Sort by position to maintain source order
+    all_matches.sort(key=lambda x: x[0])
+
+    # Build output
+    added_keys: set = set()  # Track specific keys for deduplication
+    result_parts: List[str] = []
+
+    # Specific keys that suppress generic ones
+    specific_suppresses_generic = {
+        "vgs": "v", "vds": "v", "vdd": "v", "vr": "v", "vac": "v",
+        "vf": "v", "visol": "v", "bvds": "v",
+        "id": "i", "if": "i", "irm": "i", "irrm": "i", "is": "i",
+        "igss": "i", "idss": "i",
+        "tc": "t", "tj": "t", "top": "t", "tstg": "t",
+        "rg(ext)": "r", "rg": "r",
+    }
+    generic_key_set_lower = {"v", "i", "t", "r", "l"}
+
+    for pos, key_lower, display_key, value_str, is_generic in all_matches:
+        # Skip if specific key already added (deduplication)
+        if key_lower in added_keys:
             continue
 
-        m = cp.pattern.search(normalized)
-        if not m:
-            continue
+        # For generic keys, skip if specific version already added
+        if is_generic:
+            suppressed_by = specific_suppresses_generic.get(key_lower)
+            if suppressed_by and suppressed_by in added_keys:
+                continue
 
-        # Skip generic V if match is at VDS=VGS position (we already captured VDS=VGS)
-        if (cp.key == "V" and 'vds=vgs' in seen and
-                hasattr(m, 'start') and m.start() == vds_vgs_pos):
-            continue
-
-        val = m.group(1)
-        # Build snippet: key=value with unit
-        # For generic keys (I, T, R), extract actual unit from source to preserve mA, mΩ etc.
-        # e.g., "I =30mA" should show "I=30mA" not "I=30A"
-        if cp.key in ("I", "T", "R"):
-            # Extract actual value+unit from source (full match after the '=')
-            full_match = m.group(0)
-            after_eq = full_match.split("=")[-1].strip()
-            # The 'after_eq' includes the actual unit from source
-            # e.g., "30mA", "25°C", "5Ω"
-            snippet = f"{cp.key}={after_eq}"
+        # Add to output
+        # For specific keys, add to added_keys for deduplication
+        # For generic keys, DON'T add to added_keys (allow multiple)
+        if not is_generic:
+            added_keys.add(key_lower)
         else:
-            snippet = f"{cp.key}={val}{cp.unit}"
+            # For generic keys, add the specific counterpart if exists
+            # e.g., for "v", add "vgs", "vds" etc to suppress
+            for spec, gen in specific_suppresses_generic.items():
+                if gen == key_lower:
+                    added_keys.add(spec)
 
-        if key_lower not in seen:
-            parts.append(snippet)
-            seen.add(key_lower)
+        if value_str:
+            result_parts.append(f"{display_key}={value_str}")
+        else:
+            result_parts.append(display_key)
 
-        # Special case: don't add generic V to seen - there can be multiple V parameters
-        # in datasheets (e.g., VGS=-5/+18V and VR=800V in trr). The V→VGS upgrade
-        # will convert the first V to VGS if appropriate.
-        # Suppress generic counterpart
-        # Special case: don't suppress generic V when VGS is found - they are often different
-        # parameters (e.g., VGS=-5/+18V and VR=800V in trr datasheet). The generic V=800V
-        # should NOT be suppressed just because VGS was found.
-        if cp.key in _GENERIC_KEY_SUPPRESSES:
-            generic_key = _GENERIC_KEY_SUPPRESSES[cp.key]
-            if not (cp.key == "VGS" and generic_key == "V"):
-                suppressed_generics.add(generic_key)
+    # ---- Post-processing: upgrade generic V → VGS if GS appears in text ----
+    result_lower = [p.lower() for p in result_parts]
+    has_vgs_in_result = any(p.startswith("vgs=") for p in result_lower)
+    has_v_in_result = any(p.startswith("v=") for p in result_lower)
+    gs_in_text = bool(re.search(r"\bGS\b", normalized))
+    vgs_in_source = bool(re.search(r"\bVGS\s*=", norm_lower))
 
-    # ---- Post-processing: upgrade generic V → VGS if GS subscript appears in text ----
-    # When "GS" appears as a standalone token in the source and generic V was extracted,
-    # upgrade to VGS (most likely the intended key in datasheet context)
-    # BUT: don't upgrade if VGS= already exists in source (they are different parameters)
-    parts_lower = {p.lower() for p in parts}
-    vgs_in_source = bool(re.search(r"\bVGS\s*=", norm_lower, re.IGNORECASE))
-    if ("vgs" not in parts_lower and
-            any(p.lower().startswith("v=") for p in parts) and
-            not vgs_in_source and  # Don't upgrade if VGS= already exists in source
-            re.search(r"\bGS\b", normalized)):
-        # Replace the first generic "V=..." with "VGS=..."
-        new_parts = []
-        upgraded = False
-        for p in parts:
-            if not upgraded and p.lower().startswith("v=") and "vgs" not in p.lower():
-                # Upgrade: replace value with same value but key=VGS
-                # Extract value from "V=VALUEUNIT"
-                mv = re.match(r"(V=)([\d./+-]+)(.*)", p)
-                if mv:
-                    new_parts.append(f"VGS={mv.group(2)}{mv.group(3)}")
-                    upgraded = True
-                    continue
-            new_parts.append(p)
-        parts = new_parts
+    # Count V parameters
+    v_count = sum(1 for p in result_lower if p.startswith("v=") and not p.startswith("vgs="))
 
-    result = "; ".join(parts[:8])
-    return result
+    if (has_v_in_result and
+            not has_vgs_in_result and
+            not vgs_in_source and
+            gs_in_text and
+            v_count >= 1):
+        # Heuristic: when there are multiple V parameters, prefer upgrading the one with
+        # "/" (compound value like -5/+18) as this is characteristic of VGS in datasheets
+        v_to_upgrade_idx = None
+        if v_count == 1:
+            # Only one V, upgrade it
+            for i, p in enumerate(result_parts):
+                if p.lower().startswith("v=") and not p.lower().startswith("vgs="):
+                    v_to_upgrade_idx = i
+                    break
+        else:
+            # Multiple V params: prefer the one with "/" (compound value)
+            for i, p in enumerate(result_parts):
+                if p.lower().startswith("v=") and not p.lower().startswith("vgs="):
+                    if "/" in p:
+                        v_to_upgrade_idx = i
+                        break
+            # If no V with "/", upgrade the last V (common in datasheets: VGS first, then VDS/VR)
+            if v_to_upgrade_idx is None:
+                for i in range(len(result_parts) - 1, -1, -1):
+                    p = result_parts[i]
+                    if p.lower().startswith("v=") and not p.lower().startswith("vgs="):
+                        v_to_upgrade_idx = i
+                        break
+
+        if v_to_upgrade_idx is not None:
+            p = result_parts[v_to_upgrade_idx]
+            mv = re.match(r"(V=)([\d./+-]+)(.*)", p, re.IGNORECASE)
+            if mv:
+                result_parts[v_to_upgrade_idx] = f"VGS={mv.group(2)}{mv.group(3)}"
+
+    return "; ".join(result_parts[:8])
 
 
 # ------------------------------------------------------------------
