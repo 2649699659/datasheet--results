@@ -4,10 +4,10 @@
 
 | Status | Count |
 |--------|-------|
-| active | 77 |
-| rejected | 30 |
+| active | 116 |
+| rejected | 86 |
 | weak | 0 |
-| **Total** | **107** |
+| **Total** | **202** |
 
 *active = valid candidates for further processing*
 *rejected = rejected by rating guard or policy*
@@ -19,41 +19,40 @@
 |------|---|
 | Processed PDFs | ASC300N1200ME3.pdf |
 | Total Target Fields | 30 |
-| Active Candidates | 77 |
+| Active Candidates | 116 |
 | Matched Fields | 28 |
 | Unmatched Fields | 2 |
-| Rejected by Rating Guard | 30 |
-| Possible Overmatching | 2 |
+| Rejected by Rating Guard | 86 |
+| Possible Overmatching | 4 |
 | Fuzzy Only Match | 0 |
 
-**current_rating**: 31 → 10 (rejected: 21)
+**current_rating**: 67 → 10 (rejected: 57)
 
-**voltage_rating**: 20 → 11 (rejected: 9)
+**voltage_rating**: 34 → 5 (rejected: 29)
 
 ## 3. Field Source Expectation Summary
 
 | Field ID | Label | expected_sources | match_strategy | allow_fuzzy |
 |----------|-------|-----------------|----------------|-------------|
-| voltage_rating | Voltage Rating | title, page_text, table | strict_rating | No |
-| current_rating | Current Rating | title, page_text, table | strict_rating | No |
 | qg | QG (Total Gate Charge) | table | normal | Yes |
+| current_rating | Current Rating | title, page_text, table | strict_rating | No |
 | junction_temperature | Junction Temperature | table | normal | Yes |
 | eon | Eon (Turn-On Energy) | table | normal | Yes |
+| voltage_rating | Voltage Rating | title, page_text, table | strict_rating | No |
 | rds_on_25c | RDS(on) @25°C | table | normal | Yes |
 | rds_on_150c | RDS(on) @150°C | table | normal | Yes |
-| crss | Crss | table | normal | Yes |
-| eoff | Eoff (Turn-Off Energy) | table | normal | Yes |
 | qgd | QGD (Gate-Drain Charge) | table | normal | Yes |
+| eoff | Eoff (Turn-Off Energy) | table | normal | Yes |
+| trr | trr (Reverse Recovery Time) | table | normal | Yes |
 | qrr | QRR (Reverse Recovery Charge) | table | normal | Yes |
+| module_type | Module Type | table | normal | Yes |
 | vgs_th | VGS(th) | table | normal | Yes |
 | ciss | Ciss | table | normal | Yes |
-| trr | trr (Reverse Recovery Time) | table | normal | Yes |
-| err | Err (Reverse Recovery Energy) | table | normal | Yes |
-| part_number | Part Number | metadata, page_text, table | normal | Yes |
-| module_type | Module Type | table | normal | Yes |
-| rth_jh | Rth JH (Junction-to-Heat sink) | table | normal | Yes |
 | coss | Coss | table | normal | Yes |
+| crss | Crss | table | normal | Yes |
 | qgs | QGS (Gate-Source Charge) | table | normal | Yes |
+| part_number | Part Number | metadata, page_text, table | normal | Yes |
+| rth_jh | Rth JH (Junction-to-Heat sink) | table | normal | Yes |
 | irrm | IRRM (Reverse Recovery Current) | table | normal | Yes |
 | lstray | Lstray (Stray Inductance) | table | normal | Yes |
 | weight | Weight | table | normal | Yes |
@@ -62,8 +61,9 @@
 | clearance_tb | Clearance T-B (Terminal to Baseplate) | table | normal | Yes |
 | creepage_tt | Creepage T-T (Terminal to Terminal) | table | normal | Yes |
 | creepage_tb | Creepage T-B (Terminal to Baseplate) | table | normal | Yes |
-| manufacturer | Manufacturer | metadata, page_text | metadata_text | No |
 | rth_jc | Rth JC (Junction-to-Case) | table | normal | Yes |
+| err | Err (Reverse Recovery Energy) | table | normal | Yes |
+| manufacturer | Manufacturer | metadata, page_text | metadata_text | No |
 
 ## 4. Zero-Candidate Fields
 
@@ -81,42 +81,42 @@
 
 | Field ID | Label | expected_sources |
 |----------|-------|-----------------|
-| rth_jc | Rth JC (Junction-to-Case) | table |
+| err | Err (Reverse Recovery Energy) | table |
 
 ## 5. Candidate Count by Field
 
 | Field ID | Label | Count | Exact | Symbol | Fuzzy | Pages | Warnings |
 |----------|-------|-------|-------|--------|-------|-------|----------|
-| voltage_rating | Voltage Rating | 11 | 7 | 4 | 0 | 1, 2, 4, 5 | possible_overmatching |
-| current_rating | Current Rating | 10 | 10 | 0 | 0 | 1, 2, 5 | possible_overmatching |
-| qg | QG (Total Gate Charge) | 8 | 5 | 3 | 0 | 1, 2, 5 | - |
-| junction_temperature | Junction Temperature | 6 | 4 | 2 | 0 | 1, 2, 4 | - |
-| eon | Eon (Turn-On Energy) | 5 | 1 | 4 | 0 | 1, 2, 5 | - |
-| rds_on_25c | RDS(on) @25°C | 3 | 1 | 2 | 0 | 1, 2, 4 | - |
-| rds_on_150c | RDS(on) @150°C | 3 | 1 | 2 | 0 | 1, 2, 4 | - |
-| crss | Crss | 3 | 1 | 2 | 0 | 2, 5 | - |
-| eoff | Eoff (Turn-Off Energy) | 3 | 1 | 2 | 0 | 2, 5 | - |
-| qgd | QGD (Gate-Drain Charge) | 2 | 2 | 0 | 0 | 1, 2 | - |
-| qrr | QRR (Reverse Recovery Charge) | 2 | 2 | 0 | 0 | 1, 3 | - |
-| vgs_th | VGS(th) | 2 | 2 | 0 | 0 | 2, 4 | - |
-| ciss | Ciss | 2 | 1 | 1 | 0 | 2, 5 | - |
-| trr | trr (Reverse Recovery Time) | 2 | 1 | 1 | 0 | 2, 3 | - |
-| err | Err (Reverse Recovery Energy) | 2 | 0 | 2 | 0 | 4, 5 | - |
-| part_number | Part Number | 1 | 1 | 0 | 0 | 1 | - |
-| module_type | Module Type | 1 | 1 | 0 | 0 | 1 | - |
-| rth_jh | Rth JH (Junction-to-Heat sink) | 1 | 0 | 1 | 0 | 2 | - |
-| coss | Coss | 1 | 1 | 0 | 0 | 2 | - |
-| qgs | QGS (Gate-Source Charge) | 1 | 1 | 0 | 0 | 2 | - |
-| irrm | IRRM (Reverse Recovery Current) | 1 | 1 | 0 | 0 | 3 | - |
-| lstray | Lstray (Stray Inductance) | 1 | 1 | 0 | 0 | 3 | - |
-| weight | Weight | 1 | 1 | 0 | 0 | 3 | - |
-| isol | Visol (Isolation Voltage) | 1 | 1 | 0 | 0 | 3 | - |
-| clearance_tt | Clearance T-T (Terminal to Terminal) | 1 | 1 | 0 | 0 | 3 | - |
-| clearance_tb | Clearance T-B (Terminal to Baseplate) | 1 | 1 | 0 | 0 | 3 | - |
-| creepage_tt | Creepage T-T (Terminal to Terminal) | 1 | 1 | 0 | 0 | 3 | - |
-| creepage_tb | Creepage T-B (Terminal to Baseplate) | 1 | 1 | 0 | 0 | 3 | - |
+| qg | QG (Total Gate Charge) | 14 | 14 | 0 | 0 | 1, 2, 5 | possible_overmatching |
+| current_rating | Current Rating | 10 | 10 | 0 | 0 | 1, 2 | possible_overmatching |
+| junction_temperature | Junction Temperature | 10 | 10 | 0 | 0 | 1, 2, 3, 4 | possible_overmatching |
+| eon | Eon (Turn-On Energy) | 9 | 5 | 4 | 0 | 1, 2, 5 | possible_overmatching |
+| voltage_rating | Voltage Rating | 5 | 5 | 0 | 0 | 1, 2, 5 | - |
+| rds_on_25c | RDS(on) @25°C | 5 | 5 | 0 | 0 | 1, 2, 4 | - |
+| rds_on_150c | RDS(on) @150°C | 5 | 5 | 0 | 0 | 1, 2, 4 | - |
+| qgd | QGD (Gate-Drain Charge) | 5 | 5 | 0 | 0 | 1, 2 | - |
+| eoff | Eoff (Turn-Off Energy) | 5 | 5 | 0 | 0 | 2, 5 | - |
+| trr | trr (Reverse Recovery Time) | 5 | 2 | 3 | 0 | 2, 3 | - |
+| qrr | QRR (Reverse Recovery Charge) | 4 | 4 | 0 | 0 | 1, 3 | - |
+| module_type | Module Type | 3 | 3 | 0 | 0 | 1, 7 | - |
+| vgs_th | VGS(th) | 3 | 3 | 0 | 0 | 2, 4 | - |
+| ciss | Ciss | 3 | 3 | 0 | 0 | 2, 5 | - |
+| coss | Coss | 3 | 3 | 0 | 0 | 2, 5 | - |
+| crss | Crss | 3 | 3 | 0 | 0 | 2, 5 | - |
+| qgs | QGS (Gate-Source Charge) | 3 | 3 | 0 | 0 | 2 | - |
+| part_number | Part Number | 2 | 2 | 0 | 0 | 1, 7 | - |
+| rth_jh | Rth JH (Junction-to-Heat sink) | 2 | 2 | 0 | 0 | 2 | - |
+| irrm | IRRM (Reverse Recovery Current) | 2 | 2 | 0 | 0 | 3 | - |
+| lstray | Lstray (Stray Inductance) | 2 | 2 | 0 | 0 | 3 | - |
+| weight | Weight | 2 | 2 | 0 | 0 | 3 | - |
+| isol | Visol (Isolation Voltage) | 2 | 2 | 0 | 0 | 3 | - |
+| clearance_tt | Clearance T-T (Terminal to Terminal) | 2 | 2 | 0 | 0 | 3 | - |
+| clearance_tb | Clearance T-B (Terminal to Baseplate) | 2 | 2 | 0 | 0 | 3 | - |
+| creepage_tt | Creepage T-T (Terminal to Terminal) | 2 | 2 | 0 | 0 | 3 | - |
+| creepage_tb | Creepage T-B (Terminal to Baseplate) | 2 | 2 | 0 | 0 | 3 | - |
+| rth_jc | Rth JC (Junction-to-Case) | 1 | 0 | 1 | 0 | 8 | - |
+| err | Err (Reverse Recovery Energy) | 0 | 0 | 0 | 0 |  | - |
 | manufacturer | Manufacturer | 0 | 0 | 0 | 0 |  | - |
-| rth_jc | Rth JC (Junction-to-Case) | 0 | 0 | 0 | 0 |  | - |
 
 ## 6. Accepted Rating Candidates
 
@@ -126,232 +126,212 @@
 
 Total: 10 accepted candidates
 
-**Page 1, Table 2, Row 3**
+**Page 1, Table 1, Row 3**
 - matched_alias: `current`
 - match_type: exact
 - match_policy: strict_rating
 - accept_reason: matched_drain_current
-- source_text: "I D Drain Current (continuous) 300 A T =25C C"
+- source_text: "ID Drain Current (continuous) 300 A TC=25C"
 
-**Page 1, Table 2, Row 8**
-- matched_alias: `IC`
+**Page 1, Table 2, Row 5**
+- matched_alias: `current`
 - match_type: exact
 - match_policy: strict_rating
-- accept_reason: strong_current_context
-- source_text: "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A; T =25C GS D C"
+- accept_reason: matched_drain_current
+- source_text: "ID Drain Current (continuous) A"
+
+**Page 2, Table 0, Row 3**
+- matched_alias: `current`
+- match_type: exact
+- match_policy: strict_rating
+- accept_reason: matched_drain_current
+- source_text: "ID Drain Current (continuous; TC=25C) 300 A"
+
+**Page 2, Table 0, Row 4**
+- matched_alias: `current`
+- match_type: exact
+- match_policy: strict_rating
+- accept_reason: matched_drain_current
+- source_text: "Drain Current (continuous; TC=75C) 240"
+
+**Page 2, Table 0, Row 5**
+- matched_alias: `current`
+- match_type: exact
+- match_policy: strict_rating
+- accept_reason: matched_drain_current
+- source_text: "IDM Drain Current (pulsed) 480 A"
 
 **Page 2, Table 1, Row 3**
 - matched_alias: `current`
 - match_type: exact
 - match_policy: strict_rating
 - accept_reason: matched_drain_current
-- source_text: "I D Drain Current (continuous; T =25C) C 300 A"
+- source_text: "IDSS Zero Gate Voltage Drain Current - - 150 μA VDS=1200V; VGS=0V"
 
-**Page 2, Table 1, Row 4**
+**Page 2, Table 2, Row 4**
 - matched_alias: `current`
 - match_type: exact
 - match_policy: strict_rating
 - accept_reason: matched_drain_current
-- source_text: "Drain Current (continuous; T =75C) C 240"
-
-**Page 2, Table 1, Row 5**
-- matched_alias: `current`
-- match_type: exact
-- match_policy: strict_rating
-- accept_reason: matched_drain_current
-- source_text: "I DM Drain Current (pulsed) 480 A"
-
-**Page 2, Table 2, Row 3**
-- matched_alias: `current`
-- match_type: exact
-- match_policy: strict_rating
-- accept_reason: matched_drain_current
-- source_text: "I DSS Zero Gate Voltage Drain Current - - 150 μA V =1200V; V =0V DS GS"
+- source_text: "Drain Current (continuous; TC=25C) 300"
 
 **Page 2, Table 2, Row 6**
-- matched_alias: `IC`
-- match_type: exact
-- match_policy: strict_rating
-- accept_reason: strong_current_context
-- source_text: "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A GS D"
-
-**Page 5, Table 5, Row 0**
-- matched_alias: `IC`
-- match_type: exact
-- match_policy: strict_rating
-- accept_reason: strong_current_context
-- source_text: "100000 C 10000 ISS )F p ( e1000 c n a tic C a OSS p a C 100 C RSS 10 0 200 400 600 800 1000 1200 Drain-Source Voltage, V (V) DS"
-
-**Page 5, Table 5, Row 1**
-- matched_alias: `IC`
-- match_type: exact
-- match_policy: strict_rating
-- accept_reason: strong_current_context
-- source_text: "Figure 7 Typical Capacitances vs. Drain-Source Voltage"
-
-**Page 5, Table 6, Row 1**
 - matched_alias: `current`
 - match_type: exact
 - match_policy: strict_rating
 - accept_reason: matched_drain_current
-- source_text: "Figure 8 Inductive Switching Energy vs. Drain Current"
+- source_text: "Drain Current (continuous; TC=75C) 240"
+
+**Page 2, Table 2, Row 7**
+- matched_alias: `current`
+- match_type: exact
+- match_policy: strict_rating
+- accept_reason: matched_drain_current
+- source_text: "IDM Drain Current (pulsed) 480 A"
+
+**Page 2, Table 4, Row 3**
+- matched_alias: `current`
+- match_type: exact
+- match_policy: strict_rating
+- accept_reason: matched_drain_current
+- source_text: "IDSS Zero Gate Voltage Drain Current - - 150 μA VDS=1200V; VGS=0V"
 
 ### voltage_rating (Voltage Rating)
 
-Total: 11 accepted candidates
+Total: 5 accepted candidates
 
-**Page 1, Table 2, Row 2**
+**Page 1, Table 1, Row 2**
 - matched_alias: `voltage`
 - match_type: exact
 - match_policy: strict_rating
 - accept_reason: matched_drain_source_voltage
-- source_text: "V DS Drain-Source Voltage 1200 V T =25C C"
+- source_text: "VDS Drain-Source Voltage 1200 V TC=25C"
 
-**Page 2, Table 1, Row 1**
+**Page 1, Table 2, Row 3**
 - matched_alias: `voltage`
 - match_type: exact
 - match_policy: strict_rating
 - accept_reason: matched_drain_source_voltage
-- source_text: "V DS Drain-Source Voltage 1200 V"
+- source_text: "VDS Drain-Source Voltage 1200 V TC=25C"
+
+**Page 2, Table 0, Row 1**
+- matched_alias: `voltage`
+- match_type: exact
+- match_policy: strict_rating
+- accept_reason: matched_drain_source_voltage
+- source_text: "VDS Drain-Source Voltage 1200 V"
 
 **Page 2, Table 2, Row 2**
 - matched_alias: `voltage`
 - match_type: exact
 - match_policy: strict_rating
-- accept_reason: matched_breakdown_voltage
-- source_text: "BV DS Drain-Source Breakdown Voltage 1200 - - V V =0V GS"
+- accept_reason: matched_drain_source_voltage
+- source_text: "VDS Drain-Source Voltage 1200 V"
 
-**Page 2, Table 2, Row 11**
-- matched_alias: `VDS`
-- match_type: symbol
-- match_policy: strict_rating
-- accept_reason: strong_rating_context
-- source_text: "C iss Input Capacitance - 9.15 - nF V =1000V; f=1MHz; V =25mV DS AC"
-
-**Page 4, Table 1, Row 0**
+**Page 5, Table 1, Row 16**
 - matched_alias: `voltage`
 - match_type: exact
 - match_policy: strict_rating
 - accept_reason: matched_drain_source_voltage
-- source_text: "600 V GS =20V V GS =18V 500 )A V =16V ( 400 GS SD I ,tn e rru 300 C e c ru V GS =12V o S - 200 n ia rD 100 V =8V GS 0 0 2 4 6 8 Drain-Source Voltage, V (V) DS"
-
-**Page 4, Table 8, Row 0**
-- matched_alias: `VDS`
-- match_type: symbol
-- match_policy: strict_rating
-- accept_reason: strong_rating_context
-- source_text: "V =20V DS"
-
-**Page 5, Table 1, Row 0**
-- matched_alias: `voltage`
-- match_type: exact
-- match_policy: strict_rating
-- accept_reason: matched_drain_source_voltage
-- source_text: "-10 -9 -8 -7 -6 -5 -4 -3 -2 -1 0 0 V =-5V GS -100 V =-2V GS )A ( SD -200 I ,tn V =0V GS e rru C -300 e c ru o S n - -400 ia rD -500 -600 Drain-Source Voltage, V (V) DS"
-
-**Page 5, Table 5, Row 0**
-- matched_alias: `voltage`
-- match_type: exact
-- match_policy: strict_rating
-- accept_reason: matched_drain_source_voltage
-- source_text: "100000 C 10000 ISS )F p ( e1000 c n a tic C a OSS p a C 100 C RSS 10 0 200 400 600 800 1000 1200 Drain-Source Voltage, V (V) DS"
-
-**Page 5, Table 5, Row 1**
-- matched_alias: `voltage`
-- match_type: exact
-- match_policy: strict_rating
-- accept_reason: matched_drain_source_voltage
-- source_text: "Figure 7 Typical Capacitances vs. Drain-Source Voltage"
-
-**Page 5, Table 6, Row 0**
-- matched_alias: `VDS`
-- match_type: symbol
-- match_policy: strict_rating
-- accept_reason: strong_rating_context
-- source_text: "25 V =-5/+18V GS V =800V DS L=100μH 20 R G(ext) =5Ω E total )Jm 15 ( s so L g E off n ih 10 c tiw S E on 5 0 0 40 80 120 160 200 Drain-Source Current, I (A) DS"
-
-**Page 5, Table 8, Row 0**
-- matched_alias: `VDS`
-- match_type: symbol
-- match_policy: strict_rating
-- accept_reason: strong_rating_context
-- source_text: "V =-5/+1 GS V =800V DS L=100μH R =5Ω 8V"
+- source_text: "Drain-Source Voltage, VDS (V) Gate Charge, QG (nC)"
 
 ## 7. Rejected Rating Candidates
 
 *current_rating and voltage_rating candidates rejected by rating guard*
 
-### current_rating (Current Rating) - 21 rejected
+### current_rating (Current Rating) - 57 rejected
 
-**Rejected by**: `IC_too_broad_without_current_context` (matched_alias: `IC`, count: 10)
-  - Page 1, Table 2, Row 7: "Static characteristics"
-  - Page 1, Table 2, Row 9: "Dynamic characteristics"
-  - Page 2, Table 1, Row 2: "V GS Gate-Source Voltage (dynamic) -10/+22 V"
+**Rejected by**: `IC_too_broad_without_current_context` (matched_alias: `IC`, count: 29)
+  - Page 1, Table 1, Row 7: "Static characteristics"
+  - Page 1, Table 1, Row 9: "Dynamic characteristics"
+  - Page 1, Table 2, Row 9: "Static characteristics"
 
-**Rejected by**: `ID_too_broad_without_context` (matched_alias: `ID`, count: 7)
-  - Page 2, Table 0, Row 1: "1200V, Half-Bridge, Silicon Carbide MOSFET Module"
-  - Page 3, Table 0, Row 1: "1200V, Half-Bridge, Silicon Carbide MOSFET Module"
-  - Page 4, Table 0, Row 1: "1200V, Half-Bridge, Silicon Carbide MOSFET Module"
+**Rejected by**: `ID_too_broad_without_context` (matched_alias: `ID`, count: 19)
+  - Page 1, Table 1, Row 8: "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C"
+  - Page 1, Table 1, Row 10: "QG Total Gate Charge - 618 - nC VDD=800V; VGS=-5/+18V; ID=150A; TC=25C"
+  - Page 1, Table 2, Row 10: "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C"
 
-**Rejected by**: `leakage_current_not_rating` (matched_alias: `current`, count: 1)
-  - Page 2, Table 2, Row 4: "I GSS Gate-Body Leakage Current - - 1.5 μA V =-10/20V; V =0V GS DS"
+**Rejected by**: `leakage_current_not_rating` (matched_alias: `current`, count: 2)
+  - Page 2, Table 1, Row 4: "IGSS Gate-Body Leakage Current - - 1.5 μA VGS=-10/20V; VDS=0V"
+  - Page 2, Table 4, Row 4: "IGSS Gate-Body Leakage Current - - 1.5 μA VGS=-10/20V; VDS=0V"
 
-**Rejected by**: `forward_current_not_rating` (matched_alias: `current`, count: 1)
-  - Page 3, Table 1, Row 2: "I S Continuous Diode Forward Current - 150 - A V =0V; T =25C GS C"
+**Rejected by**: `forward_current_not_rating` (matched_alias: `current`, count: 2)
+  - Page 3, Table 0, Row 2: "IS Continuous Diode Forward Current - 150 - A VGS=0V; TC=25C"
+  - Page 3, Table 2, Row 3: "IS Continuous Diode Forward Current - 150 - A VGS=0V; TC=25C"
 
-**Rejected by**: `too_broad_without_context` (matched_alias: `current`, count: 2)
-  - Page 3, Table 1, Row 5: "I RRM Peak Reverse Recovery Current - 141 - A"
-  - Page 5, Table 6, Row 0: "25 V =-5/+18V GS V =800V DS L=100μH 20 R G(ext) =5Ω E total )Jm 15 ( s so L g E off n ih 10 c tiw S E on 5 0 0 40 80 120 160 200 Drain-Source Current, I (A) DS"
+**Rejected by**: `reverse_recovery_current_not_rating` (matched_alias: `current`, count: 2)
+  - Page 3, Table 0, Row 5: "IRRM Peak Reverse Recovery Current - 141 - A"
+  - Page 3, Table 2, Row 8: "IRRM Peak Reverse Recovery Current - 141 - A"
+
+**Rejected by**: `too_broad_without_context` (matched_alias: `current`, count: 3)
+  - Page 4, Table 0, Row 9: "Drain-Source Current, IDS(A) 300 On Resistance, RDS(on) 1"
+  - Page 4, Table 1, Row 9: "1.5 Drain-Source Current, IDS(A)"
+  - Page 5, Table 0, Row 5: "80 Drain-Source Current, IDS (A) 120 160 200"
 
 
-### voltage_rating (Voltage Rating) - 9 rejected
+### voltage_rating (Voltage Rating) - 29 rejected
 
-**Rejected by**: `gate_voltage_not_rating` (matched_alias: `voltage`, count: 3)
-  - Page 2, Table 1, Row 2: "V GS Gate-Source Voltage (dynamic) -10/+22 V"
-  - Page 2, Table 2, Row 3: "I DSS Zero Gate Voltage Drain Current - - 150 μA V =1200V; V =0V DS GS"
-  - Page 4, Table 6, Row 0: "600 V =20V DS 500 )A 400 ( SD I ,tn e T=175℃ rru 300 J C e c ru T J =25℃ o S 200 - n ia T=-55℃ rD J 100 0 0 2 4 6 8 10 12 Gate-Source Voltage, V (V) GS"
+**Rejected by**: `gate_voltage_not_rating` (matched_alias: `voltage`, count: 5)
+  - Page 2, Table 0, Row 2: "VGS Gate-Source Voltage (dynamic) -10/+22 V"
+  - Page 2, Table 1, Row 3: "IDSS Zero Gate Voltage Drain Current - - 150 μA VDS=1200V; VGS=0V"
+  - Page 2, Table 2, Row 3: "VGS Gate-Source Voltage (dynamic) -10/+22 V"
 
-**Rejected by**: `too_broad_without_context` (matched_alias: `voltage`, count: 5)
-  - Page 2, Table 2, Row 5: "V GS(th) Gate Threshold Voltage 2 - 4 V V =V ; I =30mA DS GS D"
-  - Page 2, Table 2, Row 7: "V GS(on) Recommended Turn-on Voltage - 18 - V Static"
-  - Page 2, Table 2, Row 8: "V GS(off) Recommended Turn-off Voltage - -5 -"
+**Rejected by**: `test_condition_vgs_not_rating` (matched_alias: `voltage`, count: 4)
+  - Page 2, Table 1, Row 2: "BVDS Drain-Source Breakdown Voltage 1200 - - V VGS=0V"
+  - Page 2, Table 4, Row 2: "BVDS Drain-Source Breakdown Voltage 1200 - - V VGS=0V"
+  - Page 3, Table 0, Row 1: "VFSD Forward Voltage - 3.5 6 V VGS=0V; IF=150A"
 
-**Rejected by**: `isolation_voltage_not_rating` (matched_alias: `voltage`, count: 1)
-  - Page 3, Table 2, Row 4: "V isol Case Isolation Voltage (DC; t=1min) 4.2 - - kV"
+**Rejected by**: `test_condition_vds_not_rating` (matched_alias: `VDS`, count: 11)
+  - Page 2, Table 1, Row 4: "IGSS Gate-Body Leakage Current - - 1.5 μA VGS=-10/20V; VDS=0V"
+  - Page 2, Table 1, Row 11: "Ciss Input Capacitance - 9.15 - nF VDS=1000V; f=1MHz; VAC=25mV"
+  - Page 2, Table 1, Row 14: "Eon Turn-on Energy - 7.1 - mJ VDS=800V; VGS=-5/+18V; ID=150A; RG(ext)=5Ω; Load=50µH"
+
+**Rejected by**: `test_condition_vds_not_rating` (matched_alias: `voltage`, count: 2)
+  - Page 2, Table 1, Row 5: "VGS(th) Gate Threshold Voltage 2 - 4 V VDS=VGS; ID=30mA"
+  - Page 2, Table 4, Row 5: "VGS(th) Gate Threshold Voltage 2 - 4 V VDS=VGS; ID=30mA"
+
+**Rejected by**: `too_broad_without_context` (matched_alias: `voltage`, count: 4)
+  - Page 2, Table 1, Row 7: "VGS(on) Recommended Turn-on Voltage - 18 - V Static"
+  - Page 2, Table 1, Row 8: "VGS(off) Recommended Turn-off Voltage - -5 -"
+  - Page 2, Table 4, Row 7: "VGS(on) Recommended Turn-on Voltage - 18 -"
+
+**Rejected by**: `isolation_voltage_not_rating` (matched_alias: `voltage`, count: 2)
+  - Page 3, Table 1, Row 4: "Visol Case Isolation Voltage (DC; t=1min) 4.2 - - kV"
+  - Page 3, Table 3, Row 5: "Visol Case Isolation Voltage (DC; t=1min) 4.2 - - kV"
+
+**Rejected by**: `threshold_voltage_not_rating` (matched_alias: `voltage`, count: 1)
+  - Page 4, Table 1, Row 8: "Threshold Voltage, Vth(V) 300"
 
 
 ## 8. Candidate Examples by Field
 
 *Each field shows up to 3 example candidates*
 
-### voltage_rating (Voltage Rating)
+### qg (QG (Total Gate Charge))
 
-Total: 11 candidates | Exact: 7 | Symbol: 4 | Fuzzy: 0
+Total: 14 candidates | Exact: 14 | Symbol: 0 | Fuzzy: 0
 Warnings: possible_overmatching
 
-**Page 1, Table 2, Row 2**
-- matched_alias: `voltage`
+**Page 1, Table 1, Row 10**
+- matched_alias: `QG`
 - match_type: exact
-- match_policy: strict_rating
-- accept_reason: matched_drain_source_voltage
+- match_policy: normal
 - confidence: 0.95
-- source_text: "V DS Drain-Source Voltage 1200 V T =25C C"
+- source_text: "QG Total Gate Charge - 618 - nC VDD=800V; VGS=-5/+18V; ID=150A; TC=25C"
 
-**Page 2, Table 1, Row 1**
-- matched_alias: `voltage`
+**Page 1, Table 1, Row 11**
+- matched_alias: `QG`
 - match_type: exact
-- match_policy: strict_rating
-- accept_reason: matched_drain_source_voltage
+- match_policy: normal
 - confidence: 0.95
-- source_text: "V DS Drain-Source Voltage 1200 V"
+- source_text: "QGD Gate-Drain Charge - 147 -"
 
-**Page 2, Table 2, Row 2**
-- matched_alias: `voltage`
+**Page 1, Table 2, Row 12**
+- matched_alias: `QG`
 - match_type: exact
-- match_policy: strict_rating
-- accept_reason: matched_breakdown_voltage
+- match_policy: normal
 - confidence: 0.95
-- source_text: "BV DS Drain-Source Breakdown Voltage 1200 - - V V =0V GS"
+- source_text: "QG Total Gate Charge - 618 -"
 
 
 ### current_rating (Current Rating)
@@ -359,416 +339,514 @@ Warnings: possible_overmatching
 Total: 10 candidates | Exact: 10 | Symbol: 0 | Fuzzy: 0
 Warnings: possible_overmatching
 
-**Page 1, Table 2, Row 3**
+**Page 1, Table 1, Row 3**
 - matched_alias: `current`
 - match_type: exact
 - match_policy: strict_rating
 - accept_reason: matched_drain_current
 - confidence: 0.95
-- source_text: "I D Drain Current (continuous) 300 A T =25C C"
+- source_text: "ID Drain Current (continuous) 300 A TC=25C"
 
-**Page 1, Table 2, Row 8**
-- matched_alias: `IC`
-- match_type: exact
-- match_policy: strict_rating
-- accept_reason: strong_current_context
-- confidence: 0.95
-- source_text: "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A; T =25C GS D C"
-
-**Page 2, Table 1, Row 3**
+**Page 1, Table 2, Row 5**
 - matched_alias: `current`
 - match_type: exact
 - match_policy: strict_rating
 - accept_reason: matched_drain_current
 - confidence: 0.95
-- source_text: "I D Drain Current (continuous; T =25C) C 300 A"
+- source_text: "ID Drain Current (continuous) A"
 
-
-### qg (QG (Total Gate Charge))
-
-Total: 8 candidates | Exact: 5 | Symbol: 3 | Fuzzy: 0
-
-**Page 1, Table 2, Row 10**
-- matched_alias: `total gate charge`
+**Page 2, Table 0, Row 3**
+- matched_alias: `current`
 - match_type: exact
-- match_policy: normal
+- match_policy: strict_rating
+- accept_reason: matched_drain_current
 - confidence: 0.95
-- source_text: "Q G Total Gate Charge - 618 - nC V =800V; V =-5/+18V; I =150A; DD GS D T =25C C"
-
-**Page 1, Table 2, Row 11**
-- matched_alias: `QG`
-- match_type: symbol
-- match_policy: normal
-- confidence: 0.85
-- source_text: "Q GD Gate-Drain Charge - 147 -"
-
-**Page 2, Table 2, Row 16**
-- matched_alias: `QG`
-- match_type: symbol
-- match_policy: normal
-- confidence: 0.85
-- source_text: "Q GS Gate-Source Charge - 174 - nC V =800V; V =-5/+18V; I =150A DD GS D"
+- source_text: "ID Drain Current (continuous; TC=25C) 300 A"
 
 
 ### junction_temperature (Junction Temperature)
 
-Total: 6 candidates | Exact: 4 | Symbol: 2 | Fuzzy: 0
+Total: 10 candidates | Exact: 10 | Symbol: 0 | Fuzzy: 0
+Warnings: possible_overmatching
 
-**Page 1, Table 2, Row 5**
-- matched_alias: `junction temp`
-- match_type: exact
-- match_policy: normal
-- confidence: 0.95
-- source_text: "T J; MAX Junction Temperature 175 C"
-
-**Page 1, Table 2, Row 13**
+**Page 1, Table 1, Row 5**
 - matched_alias: `TJ`
-- match_type: symbol
-- match_policy: normal
-- confidence: 0.85
-- source_text: "Q RR Reverse Recovery Charge - 1839 - nC V =-5/+18V; I =150A; V =800V; GS F R R =5Ω; Load=50µH; T=25C G(ext) J"
-
-**Page 2, Table 1, Row 7**
-- matched_alias: `junction temp`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "T J; MAX Junction Temperature 175 C"
+- source_text: "TJ; MAX Junction Temperature 175 C"
+
+**Page 1, Table 1, Row 13**
+- matched_alias: `TJ`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "QRR Reverse Recovery Charge - 1839 - nC VGS=-5/+18V; IF=150A; VR=800V; RG(ext)=5Ω; Load=50µH; TJ=25C"
+
+**Page 1, Table 2, Row 7**
+- matched_alias: `TJ`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "TJ; MAX Junction Temperature 175 C"
 
 
 ### eon (Eon (Turn-On Energy))
 
-Total: 5 candidates | Exact: 1 | Symbol: 4 | Fuzzy: 0
+Total: 9 candidates | Exact: 5 | Symbol: 4 | Fuzzy: 0
+Warnings: possible_overmatching
 
-**Page 1, Table 2, Row 8**
+**Page 1, Table 1, Row 8**
 - matched_alias: `Eon`
 - match_type: symbol
 - match_policy: normal
 - confidence: 0.85
-- source_text: "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A; T =25C GS D C"
+- source_text: "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C"
 
-**Page 2, Table 2, Row 6**
+**Page 1, Table 2, Row 10**
 - matched_alias: `Eon`
 - match_type: symbol
 - match_policy: normal
 - confidence: 0.85
-- source_text: "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A GS D"
+- source_text: "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C"
 
-**Page 2, Table 2, Row 14**
-- matched_alias: `turn-on energy`
+**Page 2, Table 1, Row 6**
+- matched_alias: `Eon`
+- match_type: symbol
+- match_policy: normal
+- confidence: 0.85
+- source_text: "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A"
+
+
+### voltage_rating (Voltage Rating)
+
+Total: 5 candidates | Exact: 5 | Symbol: 0 | Fuzzy: 0
+
+**Page 1, Table 1, Row 2**
+- matched_alias: `voltage`
 - match_type: exact
-- match_policy: normal
+- match_policy: strict_rating
+- accept_reason: matched_drain_source_voltage
 - confidence: 0.95
-- source_text: "E on Turn-on Energy - 7.1 - mJ V =800V; V =-5/+18V; I =150A; DS GS D R =5Ω; Load=50µH G(ext)"
+- source_text: "VDS Drain-Source Voltage 1200 V TC=25C"
+
+**Page 1, Table 2, Row 3**
+- matched_alias: `voltage`
+- match_type: exact
+- match_policy: strict_rating
+- accept_reason: matched_drain_source_voltage
+- confidence: 0.95
+- source_text: "VDS Drain-Source Voltage 1200 V TC=25C"
+
+**Page 2, Table 0, Row 1**
+- matched_alias: `voltage`
+- match_type: exact
+- match_policy: strict_rating
+- accept_reason: matched_drain_source_voltage
+- confidence: 0.95
+- source_text: "VDS Drain-Source Voltage 1200 V"
 
 
 ### rds_on_25c (RDS(on) @25°C)
 
-Total: 3 candidates | Exact: 1 | Symbol: 2 | Fuzzy: 0
+Total: 5 candidates | Exact: 5 | Symbol: 0 | Fuzzy: 0
 
-**Page 1, Table 2, Row 8**
+**Page 1, Table 1, Row 8**
 - matched_alias: `RDS(on)`
-- match_type: symbol
-- match_policy: normal
-- confidence: 0.85
-- source_text: "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A; T =25C GS D C"
-
-**Page 2, Table 2, Row 6**
-- matched_alias: `RDS(on)`
-- match_type: symbol
-- match_policy: normal
-- confidence: 0.85
-- source_text: "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A GS D"
-
-**Page 4, Table 2, Row 1**
-- matched_alias: `on-resistance`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "Figure 2 Normalized On-Resistance vs. Temperature"
+- source_text: "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C"
+
+**Page 1, Table 2, Row 10**
+- matched_alias: `RDS(on)`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C"
+
+**Page 2, Table 1, Row 6**
+- matched_alias: `RDS(on)`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A"
 
 
 ### rds_on_150c (RDS(on) @150°C)
 
-Total: 3 candidates | Exact: 1 | Symbol: 2 | Fuzzy: 0
+Total: 5 candidates | Exact: 5 | Symbol: 0 | Fuzzy: 0
 
-**Page 1, Table 2, Row 8**
+**Page 1, Table 1, Row 8**
 - matched_alias: `RDS(on)`
-- match_type: symbol
+- match_type: exact
 - match_policy: normal
-- confidence: 0.85
-- source_text: "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A; T =25C GS D C"
+- confidence: 0.95
+- source_text: "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C"
 
-**Page 2, Table 2, Row 6**
+**Page 1, Table 2, Row 10**
 - matched_alias: `RDS(on)`
-- match_type: symbol
-- match_policy: normal
-- confidence: 0.85
-- source_text: "R DS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ V =18V; I =150A GS D"
-
-**Page 4, Table 2, Row 1**
-- matched_alias: `on-resistance`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "Figure 2 Normalized On-Resistance vs. Temperature"
+- source_text: "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C"
 
-
-### crss (Crss)
-
-Total: 3 candidates | Exact: 1 | Symbol: 2 | Fuzzy: 0
-
-**Page 2, Table 2, Row 13**
-- matched_alias: `reverse transfer capacitance`
+**Page 2, Table 1, Row 6**
+- matched_alias: `RDS(on)`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "C rss Reverse Transfer Capacitance - 45 - pF"
-
-**Page 5, Table 5, Row 0**
-- matched_alias: `Crss`
-- match_type: symbol
-- match_policy: normal
-- confidence: 0.85
-- source_text: "100000 C 10000 ISS )F p ( e1000 c n a tic C a OSS p a C 100 C RSS 10 0 200 400 600 800 1000 1200 Drain-Source Voltage, V (V) DS"
-
-**Page 5, Table 7, Row 3**
-- matched_alias: `Crss`
-- match_type: symbol
-- match_policy: normal
-- confidence: 0.85
-- source_text: "C RSS"
-
-
-### eoff (Eoff (Turn-Off Energy))
-
-Total: 3 candidates | Exact: 1 | Symbol: 2 | Fuzzy: 0
-
-**Page 2, Table 2, Row 15**
-- matched_alias: `turn-off energy`
-- match_type: exact
-- match_policy: normal
-- confidence: 0.95
-- source_text: "E off Turn-off Energy - 7.9 -"
-
-**Page 5, Table 6, Row 0**
-- matched_alias: `Eoff`
-- match_type: symbol
-- match_policy: normal
-- confidence: 0.85
-- source_text: "25 V =-5/+18V GS V =800V DS L=100μH 20 R G(ext) =5Ω E total )Jm 15 ( s so L g E off n ih 10 c tiw S E on 5 0 0 40 80 120 160 200 Drain-Source Current, I (A) DS"
-
-**Page 5, Table 8, Row 2**
-- matched_alias: `Eoff`
-- match_type: symbol
-- match_policy: normal
-- confidence: 0.85
-- source_text: "E off"
+- source_text: "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A"
 
 
 ### qgd (QGD (Gate-Drain Charge))
 
-Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
+Total: 5 candidates | Exact: 5 | Symbol: 0 | Fuzzy: 0
 
-**Page 1, Table 2, Row 11**
-- matched_alias: `gate-drain charge`
+**Page 1, Table 1, Row 11**
+- matched_alias: `Qgd`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "Q GD Gate-Drain Charge - 147 -"
+- source_text: "QGD Gate-Drain Charge - 147 -"
 
-**Page 2, Table 2, Row 17**
-- matched_alias: `gate-drain charge`
+**Page 1, Table 2, Row 16**
+- matched_alias: `Qgd`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "Q GD Gate-Drain Charge - 147 -"
+- source_text: "QGD Gate-Drain Charge - 147 -"
 
-
-### qrr (QRR (Reverse Recovery Charge))
-
-Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
-
-**Page 1, Table 2, Row 13**
-- matched_alias: `reverse recovery charge`
+**Page 2, Table 1, Row 17**
+- matched_alias: `Qgd`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "Q RR Reverse Recovery Charge - 1839 - nC V =-5/+18V; I =150A; V =800V; GS F R R =5Ω; Load=50µH; T=25C G(ext) J"
+- source_text: "QGD Gate-Drain Charge - 147 -"
 
-**Page 3, Table 1, Row 4**
-- matched_alias: `reverse recovery charge`
+
+### eoff (Eoff (Turn-Off Energy))
+
+Total: 5 candidates | Exact: 5 | Symbol: 0 | Fuzzy: 0
+
+**Page 2, Table 1, Row 15**
+- matched_alias: `Eoff`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "Q RR Reverse Recovery Charge - 1839 - nC"
+- source_text: "Eoff Turn-off Energy - 7.9 -"
 
-
-### vgs_th (VGS(th))
-
-Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
-
-**Page 2, Table 2, Row 5**
-- matched_alias: `gate threshold voltage`
+**Page 2, Table 3, Row 2**
+- matched_alias: `Eoff`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "V GS(th) Gate Threshold Voltage 2 - 4 V V =V ; I =30mA DS GS D"
+- source_text: "Eoff Turn-off Energy - 7.9 -"
 
-**Page 4, Table 5, Row 1**
-- matched_alias: `threshold voltage`
+**Page 2, Table 4, Row 20**
+- matched_alias: `Eoff`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "Figure 3 Threshold Voltage vs. Temperature"
-
-
-### ciss (Ciss)
-
-Total: 2 candidates | Exact: 1 | Symbol: 1 | Fuzzy: 0
-
-**Page 2, Table 2, Row 11**
-- matched_alias: `input capacitance`
-- match_type: exact
-- match_policy: normal
-- confidence: 0.95
-- source_text: "C iss Input Capacitance - 9.15 - nF V =1000V; f=1MHz; V =25mV DS AC"
-
-**Page 5, Table 7, Row 0**
-- matched_alias: `Ciss`
-- match_type: symbol
-- match_policy: normal
-- confidence: 0.85
-- source_text: "C ISS"
+- source_text: "Eoff Turn-off Energy - 7.9 -"
 
 
 ### trr (trr (Reverse Recovery Time))
 
-Total: 2 candidates | Exact: 1 | Symbol: 1 | Fuzzy: 0
+Total: 5 candidates | Exact: 2 | Symbol: 3 | Fuzzy: 0
 
-**Page 2, Table 2, Row 20**
+**Page 2, Table 1, Row 20**
 - matched_alias: `trr`
 - match_type: symbol
 - match_policy: normal
 - confidence: 0.85
-- source_text: "t r Rise Time - 42 -"
+- source_text: "tr Rise Time - 42 -"
 
-**Page 3, Table 1, Row 3**
-- matched_alias: `reverse recovery time`
-- match_type: exact
-- match_policy: normal
-- confidence: 0.95
-- source_text: "t RR Reverse Recovery Time - 96 - ns V =-5/+18V; I =150A; V =800V; GS F R R =5Ω; Load=50µH G(ext)"
-
-
-### err (Err (Reverse Recovery Energy))
-
-Total: 2 candidates | Exact: 0 | Symbol: 2 | Fuzzy: 0
-
-**Page 4, Table 1, Row 0**
-- matched_alias: `Err`
+**Page 2, Table 3, Row 7**
+- matched_alias: `trr`
 - match_type: symbol
 - match_policy: normal
 - confidence: 0.85
-- source_text: "600 V GS =20V V GS =18V 500 )A V =16V ( 400 GS SD I ,tn e rru 300 C e c ru V GS =12V o S - 200 n ia rD 100 V =8V GS 0 0 2 4 6 8 Drain-Source Voltage, V (V) DS"
+- source_text: "tr Rise Time - 42 -"
 
-**Page 5, Table 1, Row 0**
-- matched_alias: `Err`
+**Page 2, Table 4, Row 25**
+- matched_alias: `trr`
 - match_type: symbol
 - match_policy: normal
 - confidence: 0.85
-- source_text: "-10 -9 -8 -7 -6 -5 -4 -3 -2 -1 0 0 V =-5V GS -100 V =-2V GS )A ( SD -200 I ,tn V =0V GS e rru C -300 e c ru o S n - -400 ia rD -500 -600 Drain-Source Voltage, V (V) DS"
+- source_text: "tr Rise Time - 42 -"
 
 
-### part_number (Part Number)
+### qrr (QRR (Reverse Recovery Charge))
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 4 candidates | Exact: 4 | Symbol: 0 | Fuzzy: 0
 
-**Page 1, Table 1, Row 2**
-- matched_alias: `type`
+**Page 1, Table 1, Row 13**
+- matched_alias: `Qrr`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "Package Type ME3"
+- source_text: "QRR Reverse Recovery Charge - 1839 - nC VGS=-5/+18V; IF=150A; VR=800V; RG(ext)=5Ω; Load=50µH; TJ=25C"
+
+**Page 1, Table 2, Row 19**
+- matched_alias: `Qrr`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "QRR Reverse Recovery Charge - 1839 - nC"
+
+**Page 3, Table 0, Row 4**
+- matched_alias: `Qrr`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "QRR Reverse Recovery Charge - 1839 - nC"
 
 
 ### module_type (Module Type)
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 3 candidates | Exact: 3 | Symbol: 0 | Fuzzy: 0
 
-**Page 1, Table 1, Row 2**
+**Page 1, Table 0, Row 2**
 - matched_alias: `package`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
 - source_text: "Package Type ME3"
 
-
-### rth_jh (Rth JH (Junction-to-Heat sink))
-
-Total: 1 candidates | Exact: 0 | Symbol: 1 | Fuzzy: 0
-
-**Page 2, Table 1, Row 8**
-- matched_alias: `Rth JH`
-- match_type: symbol
+**Page 7, Table 1, Row 3**
+- matched_alias: `package`
+- match_type: exact
 - match_policy: normal
-- confidence: 0.85
-- source_text: "R th Jh Thermal Resistance, Junction-to-Heatsink 0.12 C/W"
+- confidence: 0.95
+- source_text: "Package Dimensions (mm)"
+
+**Page 7, Table 1, Row 4**
+- matched_alias: `package`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Package Type：ME3"
+
+
+### vgs_th (VGS(th))
+
+Total: 3 candidates | Exact: 3 | Symbol: 0 | Fuzzy: 0
+
+**Page 2, Table 1, Row 5**
+- matched_alias: `VGS(th)`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "VGS(th) Gate Threshold Voltage 2 - 4 V VDS=VGS; ID=30mA"
+
+**Page 2, Table 4, Row 5**
+- matched_alias: `VGS(th)`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "VGS(th) Gate Threshold Voltage 2 - 4 V VDS=VGS; ID=30mA"
+
+**Page 4, Table 1, Row 8**
+- matched_alias: `Vth`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Threshold Voltage, Vth(V) 300"
+
+
+### ciss (Ciss)
+
+Total: 3 candidates | Exact: 3 | Symbol: 0 | Fuzzy: 0
+
+**Page 2, Table 1, Row 11**
+- matched_alias: `Ciss`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Ciss Input Capacitance - 9.15 - nF VDS=1000V; f=1MHz; VAC=25mV"
+
+**Page 2, Table 4, Row 12**
+- matched_alias: `Ciss`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Ciss Input Capacitance - 9.15 -"
+
+**Page 5, Table 2, Row 5**
+- matched_alias: `Ciss`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "CISS"
 
 
 ### coss (Coss)
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 3 candidates | Exact: 3 | Symbol: 0 | Fuzzy: 0
 
-**Page 2, Table 2, Row 12**
-- matched_alias: `output capacitance`
+**Page 2, Table 1, Row 12**
+- matched_alias: `Coss`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "C oss Output Capacitance - 0.29 -"
+- source_text: "Coss Output Capacitance - 0.29 -"
+
+**Page 2, Table 4, Row 14**
+- matched_alias: `Coss`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Coss Output Capacitance - 0.29 - VDS=1000V; f=1MHz; VAC=25mV"
+
+**Page 5, Table 2, Row 11**
+- matched_alias: `Coss`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "COSS 10"
+
+
+### crss (Crss)
+
+Total: 3 candidates | Exact: 3 | Symbol: 0 | Fuzzy: 0
+
+**Page 2, Table 1, Row 13**
+- matched_alias: `Crss`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Crss Reverse Transfer Capacitance - 45 - pF"
+
+**Page 2, Table 4, Row 15**
+- matched_alias: `Crss`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Crss Reverse Transfer Capacitance - 45 - pF"
+
+**Page 5, Table 2, Row 14**
+- matched_alias: `Crss`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "CRSS 5"
 
 
 ### qgs (QGS (Gate-Source Charge))
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 3 candidates | Exact: 3 | Symbol: 0 | Fuzzy: 0
 
-**Page 2, Table 2, Row 16**
-- matched_alias: `gate-source charge`
+**Page 2, Table 1, Row 16**
+- matched_alias: `Qgs`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "Q GS Gate-Source Charge - 174 - nC V =800V; V =-5/+18V; I =150A DD GS D"
+- source_text: "QGS Gate-Source Charge - 174 - nC VDD=800V; VGS=-5/+18V; ID=150A"
+
+**Page 2, Table 3, Row 3**
+- matched_alias: `Qgs`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "QGS Gate-Source Charge - 174 -"
+
+**Page 2, Table 4, Row 21**
+- matched_alias: `Qgs`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "QGS Gate-Source Charge - 174 -"
+
+
+### part_number (Part Number)
+
+Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
+
+**Page 1, Table 0, Row 2**
+- matched_alias: `type`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Package Type ME3"
+
+**Page 7, Table 1, Row 4**
+- matched_alias: `type`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Package Type：ME3"
+
+
+### rth_jh (Rth JH (Junction-to-Heat sink))
+
+Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
+
+**Page 2, Table 0, Row 8**
+- matched_alias: `Rth JH`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Rth Jh Thermal Resistance, Junction-to-Heatsink 0.12 C/W"
+
+**Page 2, Table 2, Row 10**
+- matched_alias: `Rth JH`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Rth Jh Thermal Resistance, Junction-to-Heatsink 0.12 C/W"
 
 
 ### irrm (IRRM (Reverse Recovery Current))
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
 
-**Page 3, Table 1, Row 5**
-- matched_alias: `peak reverse recovery current`
+**Page 3, Table 0, Row 5**
+- matched_alias: `IRRM`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "I RRM Peak Reverse Recovery Current - 141 - A"
+- source_text: "IRRM Peak Reverse Recovery Current - 141 - A"
+
+**Page 3, Table 2, Row 8**
+- matched_alias: `IRRM`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "IRRM Peak Reverse Recovery Current - 141 - A"
 
 
 ### lstray (Lstray (Stray Inductance))
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
 
-**Page 3, Table 2, Row 1**
-- matched_alias: `stray inductance`
+**Page 3, Table 1, Row 1**
+- matched_alias: `Lstray`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "L Stray Stray Inductance - 20 - nH"
+- source_text: "LStray Stray Inductance - 20 - nH"
+
+**Page 3, Table 3, Row 2**
+- matched_alias: `Lstray`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "LStray Stray Inductance - 20 - nH"
 
 
 ### weight (Weight)
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
 
-**Page 3, Table 2, Row 2**
+**Page 3, Table 1, Row 2**
+- matched_alias: `weight`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "W Weight - 340 - g"
+
+**Page 3, Table 3, Row 3**
 - matched_alias: `weight`
 - match_type: exact
 - match_policy: normal
@@ -778,61 +856,108 @@ Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
 
 ### isol (Visol (Isolation Voltage))
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
 
-**Page 3, Table 2, Row 4**
-- matched_alias: `isolation voltage`
+**Page 3, Table 1, Row 4**
+- matched_alias: `Visol`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
-- source_text: "V isol Case Isolation Voltage (DC; t=1min) 4.2 - - kV"
+- source_text: "Visol Case Isolation Voltage (DC; t=1min) 4.2 - - kV"
+
+**Page 3, Table 3, Row 5**
+- matched_alias: `Visol`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "Visol Case Isolation Voltage (DC; t=1min) 4.2 - - kV"
 
 
 ### clearance_tt (Clearance T-T (Terminal to Terminal))
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
 
-**Page 3, Table 2, Row 5**
+**Page 3, Table 1, Row 5**
 - matched_alias: `clearance`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
 - source_text: "- Clearance Distance - 11 - mm Terminal to Terminal"
+
+**Page 3, Table 3, Row 7**
+- matched_alias: `clearance`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "- Clearance Distance"
 
 
 ### clearance_tb (Clearance T-B (Terminal to Baseplate))
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
 
-**Page 3, Table 2, Row 5**
+**Page 3, Table 1, Row 5**
 - matched_alias: `clearance`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
 - source_text: "- Clearance Distance - 11 - mm Terminal to Terminal"
 
+**Page 3, Table 3, Row 7**
+- matched_alias: `clearance`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "- Clearance Distance"
+
 
 ### creepage_tt (Creepage T-T (Terminal to Terminal))
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
 
-**Page 3, Table 2, Row 7**
+**Page 3, Table 1, Row 7**
 - matched_alias: `creepage`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
 - source_text: "- Creepage Distance - 23 - mm Terminal to Terminal"
+
+**Page 3, Table 3, Row 10**
+- matched_alias: `creepage`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "- Creepage Distance"
 
 
 ### creepage_tb (Creepage T-B (Terminal to Baseplate))
 
-Total: 1 candidates | Exact: 1 | Symbol: 0 | Fuzzy: 0
+Total: 2 candidates | Exact: 2 | Symbol: 0 | Fuzzy: 0
 
-**Page 3, Table 2, Row 7**
+**Page 3, Table 1, Row 7**
 - matched_alias: `creepage`
 - match_type: exact
 - match_policy: normal
 - confidence: 0.95
 - source_text: "- Creepage Distance - 23 - mm Terminal to Terminal"
+
+**Page 3, Table 3, Row 10**
+- matched_alias: `creepage`
+- match_type: exact
+- match_policy: normal
+- confidence: 0.95
+- source_text: "- Creepage Distance"
+
+
+### rth_jc (Rth JC (Junction-to-Case))
+
+Total: 1 candidates | Exact: 0 | Symbol: 1 | Fuzzy: 0
+
+**Page 8, Table 0, Row 13**
+- matched_alias: `Rth`
+- match_type: symbol
+- match_policy: normal
+- confidence: 0.85
+- source_text: "customer’s technical departments to evaluate the suitability of the product for the intended application and the"
 
 

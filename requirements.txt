@@ -9,6 +9,9 @@ python-dotenv>=1.0.0
 # Optional: for fuzzy matching
 rapidfuzz>=3.0.0
 
+# Table extraction
+camelot-py>=1.0.0
+
 # Optional: for API calls (if using LLM)
 requests>=2.31.0
 httpx>=0.25.0

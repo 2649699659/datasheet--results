@@ -21,42 +21,42 @@
 | Field ID | parse_quality | Issues |
 |----------|---------------|--------|
 | ciss | low, medium | no_reliable_header |
-| clearance_tt | low | no_reliable_header |
 | coss | low | no_reliable_header |
-| creepage_tt | low | no_reliable_header |
-| crss | low, medium | no_reliable_header |
+| crss | low | no_reliable_header |
 | eoff | low, medium | no_reliable_header |
 | eon | low, medium | no_reliable_header |
 | irrm | low | no_reliable_header |
 | isol | low | no_reliable_header |
-| junction_temperature | low, high | no_reliable_header |
+| junction_temperature | low, medium | no_reliable_header |
 | lstray | medium | - |
-| module_type | low | no_reliable_header |
+| module_type | low, medium | no_reliable_header |
 | part_number | low | no_reliable_header |
+| qg | low, medium | no_reliable_header |
 | qgd | low | no_reliable_header |
 | qgs | low | no_reliable_header |
 | qrr | low | no_reliable_header |
 | rds_on_150c | low, medium | no_reliable_header |
 | rds_on_25c | low, medium | no_reliable_header |
+| rth_jc | medium | - |
 | rth_jh | low | no_reliable_header |
 | trr | low, medium | no_reliable_header |
-| vgs_th | low, high | - |
+| voltage_rating | low, medium | - |
 | weight | medium | - |
 
 ## blocked
 
 | Field ID | Count | Critical Issues |
 |----------|-------|----------------|
-| clearance_tb | 1 | condition_type_mismatch |
-| creepage_tb | 1 | condition_type_mismatch |
+| clearance_tb | 2 | condition_type_mismatch, condition_unclear |
+| clearance_tt | 2 | condition_unclear |
+| creepage_tb | 2 | condition_type_mismatch, condition_unclear |
+| creepage_tt | 2 | condition_unclear |
 | current_rating | 10 | ambiguous |
-| err | 2 | range_value_needs_review |
-| qg | 8 | range_value_needs_review |
-| voltage_rating | 11 | range_value_needs_review |
+| vgs_th | 3 | partial_threshold_values |
 
 ## missing (no candidates)
 
 | Field ID |
 |----------|
+| err |
 | manufacturer |
-| rth_jc |

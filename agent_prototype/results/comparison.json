@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-07-17T13:26:14.593135",
+  "total_test_rows": 44,
+  "llm_results_count": 10,
+  "pipeline_results_count": 5,
+  "by_field": {
+    "current_rating": {
+      "test_rows_count": 20,
+      "pipeline_status": "review_needed",
+      "pipeline_value": 300.0,
+      "pipeline_unit": "A",
+      "pipeline_source_page": 2,
+      "llm_found_count": 3,
+      "value_match": false
+    },
+    "trr": {
+      "test_rows_count": 2,
+      "pipeline_status": "final_candidate",
+      "pipeline_value": 96.0,
+      "pipeline_unit": "ns",
+      "pipeline_source_page": 3,
+      "llm_found_count": 0
+    },
+    "voltage_rating": {
+      "test_rows_count": 22,
+      "pipeline_status": "review_needed",
+      "pipeline_value": 1200.0,
+      "pipeline_unit": "V",
+      "pipeline_source_page": 1,
+      "llm_found_count": 3,
+      "value_match": false
+    }
+  },
+  "discrepancies": [
+    {
+      "field_id": "current_rating",
+      "llm_value": {
+        "min": null,
+        "typ": null,
+        "max": null,
+        "value": "300"
+      },
+      "pipeline_value": 300.0
+    },
+    {
+      "field_id": "voltage_rating",
+      "llm_value": {
+        "min": null,
+        "typ": null,
+        "max": null,
+        "value": "1200"
+      },
+      "pipeline_value": 1200.0
+    }
+  ]
+}

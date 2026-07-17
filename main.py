@@ -47,6 +47,11 @@ from pipeline.final_selector import (
     generate_selector_audit,
     save_selection_json,
 )
+from extractors import (
+    extract_with_backend,
+    extracted_document_to_pipeline_format,
+    score_camelot_table,
+)
 
 
 def parse_args():
@@ -54,62 +59,70 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Datasheet Extractor - Extract parameters from PDF datasheets to Excel"
     )
-    
+
     parser.add_argument(
         "--input", "-i",
         type=str,
         help="Input directory containing PDF datasheets"
     )
-    
+
     parser.add_argument(
         "--pdf", "-p",
         type=str,
         help="Single PDF file path"
     )
-    
+
     parser.add_argument(
         "--output", "-o",
         type=str,
         help="Output directory or file path"
     )
-    
+
     parser.add_argument(
         "--llm",
         action="store_true",
         help="Enable LLM enhancement (requires API key in .env)"
     )
-    
+
     parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug output"
     )
-    
+
     parser.add_argument(
         "--validate-config",
         action="store_true",
         help="Validate target_fields.yaml configuration"
     )
-    
+
     parser.add_argument(
         "--test-units",
         action="store_true",
         help="Test unit conversion functions"
     )
-    
+
+    parser.add_argument(
+        "--backend",
+        type=str,
+        choices=["pdfplumber", "camelot"],
+        default="pdfplumber",
+        help="Table extraction backend (default: pdfplumber)"
+    )
+
     return parser.parse_args()
 
 
 def validate_config():
     """Validate the target_fields.yaml configuration."""
     print("\nValidating target_fields.yaml configuration...\n")
-    
+
     # Load and validate
     fields, errors = load_target_fields()
-    
+
     # Print report
     print_validation_report(fields, errors)
-    
+
     # Return exit code
     return 0 if len(errors) == 0 else 1
 
@@ -117,14 +130,14 @@ def validate_config():
 def test_units():
     """Test unit conversion and extraction functions."""
     print("\nTesting unit conversions...\n")
-    
+
     all_passed, results = test_conversions()
-    
+
     for result in results:
         print(result)
-    
+
     print("\nTesting unit extraction (longest-first)...\n")
-    
+
     # Unit extraction tests - verify longest-first ordering
     unit_tests = [
         ("5 kV", "kV"),
@@ -142,7 +155,7 @@ def test_units():
         ("9.5 g", "g"),
         ("2.3 mΩ", "mΩ"),
     ]
-    
+
     unit_passed = 0
     for text, expected in unit_tests:
         result = extract_unit(text)
@@ -150,90 +163,109 @@ def test_units():
         if result == expected:
             unit_passed += 1
         print(f"  {status} extract_unit('{text}') = '{result}' (expected: '{expected}')")
-    
+
     total_tests = len(unit_tests)
     print(f"\nUnit extraction: {unit_passed}/{total_tests} passed")
-    
+
     overall_passed = all_passed and (unit_passed == total_tests)
-    
+
     print()
     if overall_passed:
         print("Conversion test PASSED")
     else:
         print("Conversion test FAILED")
-    
+
     return 0 if overall_passed else 1
 
 
 def main():
     """Main entry point."""
     args = parse_args()
-    
+
     # Handle --validate-config
     if args.validate_config:
         return validate_config()
-    
+
     # Handle --test-units
     if args.test_units:
         return test_units()
-    
+
     # Validate that output is specified for normal operation
     if not args.output:
         print("Error: --output is required (or use --validate-config)")
         sys.exit(1)
-    
+
     # Validate inputs
     if not args.input and not args.pdf:
         print("Error: Must specify either --input or --pdf")
         sys.exit(1)
-    
+
     if args.input and args.pdf:
         print("Error: Cannot specify both --input and --pdf")
         sys.exit(1)
-    
+
     input_path = args.input or args.pdf
     output_path = Path(args.output)
-    
+
     print(f"Datasheet Extractor")
     print(f"==================")
     print(f"Input: {input_path}")
     print(f"Output: {output_path}")
+    print(f"Backend: {args.backend}")
     print(f"LLM: {'Enabled' if args.llm else 'Disabled (not implemented yet)'}")
     print()
-    
+
     # ========== Step 1: Extract PDFs ==========
     print("Step 1: Extracting PDFs...")
-    
+
     if Path(input_path).is_file():
         # Single PDF
-        extraction_results = [extract_pdf(input_path)]
+        if args.backend == "camelot":
+            # Use new Camelot backend
+            doc = extract_with_backend(input_path, backend="camelot")
+            pipeline_format = extracted_document_to_pipeline_format(doc, input_path)
+            extraction_results = [pipeline_format]
+            print(f"  [Camelot] Extracted document '{doc.file_name}'")
+            total_tables = sum(len(p.tables) for p in doc.pages)
+            print(f"  [Camelot] Total tables: {total_tables}")
+            if total_tables > 0:
+                scored = []
+                for page in doc.pages:
+                    for table in page.tables:
+                        scored.append((table, score_camelot_table(table)))
+                if scored:
+                    best = max(scored, key=lambda x: x[1])
+                    print(f"  [Camelot] Best table: page={best[0].page_number} flavor={best[0].flavor} score={best[1]:.1f}")
+        else:
+            # Use existing pdfplumber backend
+            extraction_results = [extract_pdf(input_path)]
     else:
-        # Directory of PDFs
+        # Directory of PDFs (only pdfplumber supported for now)
         extraction_results = extract_pdfs_from_directory(input_path)
-    
+
     print(f"  Extracted {len(extraction_results)} PDF(s)")
-    
+
     # ========== Step 2: Create Debug Output ==========
     print("\nStep 2: Creating debug output...")
-    
+
     # Create output directory
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Always use fixed debug JSON path in output directory
     debug_json_path = output_path.parent / "debug_extracted_pages.json"
-    
+
     # Create debug output
     debug_output = create_debug_output(extraction_results)
-    
+
     # Save debug JSON
     with open(debug_json_path, "w", encoding="utf-8") as f:
         json.dump(debug_output, f, ensure_ascii=False, indent=2)
-    
+
     print(f"  Debug JSON saved to: {debug_json_path}")
-    
+
     # ========== Step 2b: Process Tables (needed for parser) ==========
     print("\nStep 2b: Processing tables...")
-    
+
     processed_pdfs = []
     for result in extraction_results:
         if "error" in result:
@@ -246,17 +278,17 @@ def main():
             **result,
             "pages": processed_pages,
         })
-    
+
     print(f"  Processed {len(processed_pdfs)} PDFs with table normalization")
-    
+
     # ========== Step 3: Parse Candidates ==========
     print("\nStep 3: Parsing table candidates...")
-    
+
     # Load target fields
     target_fields, field_errors = load_target_fields()
     if field_errors:
         print(f"  Warning: {len(field_errors)} field validation errors")
-    
+
     # Parse candidates from PROCESSED data (not debug JSON)
     all_candidates = []
     all_rejected = {}  # Aggregate rejected info across all PDFs
@@ -275,57 +307,57 @@ def main():
             for ex in info.get("examples", []):
                 if len(all_rejected[key]["examples"]) < 3:
                     all_rejected[key]["examples"].append(ex)
-    
+
     print(f"  Found {len(all_candidates)} candidate rows")
     print(f"  Rejected by rating guard: {sum(r.get('count', 0) for r in all_rejected.values())} rows")
-    
+
     # Create candidates debug JSON
     all_target_field_ids = set(f["id"] for f in target_fields)
     candidates_debug = candidates_to_debug_json(all_candidates, extraction_results, all_target_field_ids, all_rejected)
     candidates_json_path = output_path.parent / "raw_candidates_debug.json"
-    
+
     with open(candidates_json_path, "w", encoding="utf-8") as f:
         json.dump(candidates_debug, f, ensure_ascii=False, indent=2)
-    
+
     print(f"  Candidates JSON saved to: {candidates_json_path}")
-    
+
     # Generate candidate audit markdown
     audit_markdown = generate_candidate_audit(all_candidates, target_fields, candidates_debug, all_rejected)
     audit_path = output_path.parent / "candidate_audit.md"
     with open(audit_path, "w", encoding="utf-8") as f:
         f.write(audit_markdown)
-    
+
     print(f"  Candidate audit saved to: {audit_path}")
-    
+
     # ========== Step 5: Parse Candidate Values ==========
     print("\nStep 5: Parsing candidate values...")
     parsed_params = parse_candidate_values(all_candidates, extraction_results)
-    
+
     # Generate raw params debug JSON
     params_debug = params_to_debug_json(parsed_params, all_candidates)
     params_json_path = output_path.parent / "raw_params_debug.json"
     with open(params_json_path, "w", encoding="utf-8") as f:
         json.dump(params_debug, f, ensure_ascii=False, indent=2)
     print(f"  Params JSON saved to: {params_json_path}")
-    
+
     # Generate value parse audit markdown
     value_audit_markdown = generate_value_parse_audit(parsed_params, all_candidates, all_target_field_ids)
     value_audit_path = output_path.parent / "value_parse_audit.md"
     with open(value_audit_path, "w", encoding="utf-8") as f:
         f.write(value_audit_markdown)
     print(f"  Value parse audit saved to: {value_audit_path}")
-    
+
     # Generate excel readiness audit (Step 5.7 checkpoint)
     readiness_markdown = generate_excel_readiness_audit(parsed_params, all_target_field_ids)
     readiness_path = output_path.parent / "excel_readiness_audit.md"
     with open(readiness_path, "w", encoding="utf-8") as f:
         f.write(readiness_markdown)
     print(f"  Excel readiness audit saved to: {readiness_path}")
-    
+
     # Compute stats for summary
     parsed_value_count = params_debug["parsed_value_count"]
     failed_parse_count = params_debug["failed_parse_count"]
-    
+
     # Collect fields with/without values
     fields_with_values = set()
     fields_without_values = set()
@@ -334,25 +366,25 @@ def main():
             fields_with_values.add(fid)
         for fid in pdf_info.get("failed_fields", []):
             fields_without_values.add(fid)
-    
+
     # ========== Print Summary ==========
     print_summary(extraction_results, debug_output)
-    
+
     # Compute warnings from candidates
     possible_overmatching = []
     fuzzy_only = []
-    
+
     # Group candidates by field
     from collections import defaultdict
     by_field = defaultdict(list)
     for c in all_candidates:
         by_field[c.field_id].append(c)
-    
+
     for field_id, field_candidates in by_field.items():
         # Check overmatching (> 8 candidates)
         if len(field_candidates) > 8:
             possible_overmatching.append(field_id)
-        
+
         # Check fuzzy only
         match_types = set()
         for c in field_candidates:
@@ -362,24 +394,24 @@ def main():
                 match_types.add("symbol")
             elif c.confidence == 0.70:
                 match_types.add("fuzzy")
-        
+
         if "fuzzy" in match_types and "exact" not in match_types and "symbol" not in match_types:
             fuzzy_only.append(field_id)
-    
+
     # Print candidates summary
     print("\n" + "=" * 60)
     print("CANDIDATES SUMMARY")
     print("=" * 60)
     print(f"  Processed PDFs:           {len(extraction_results)}")
     print(f"  Total candidate rows:     {len(all_candidates)}")
-    
+
     # Count matched fields
     all_field_ids = set(c.field_id for c in all_candidates)
     target_field_ids = set(f["id"] for f in target_fields)
-    
+
     print(f"  Matched fields:           {len(all_field_ids)}")
     print(f"  Unmatched fields:          {len(target_field_ids - all_field_ids)}")
-    
+
     if all_field_ids:
         print(f"\n  Matched field IDs:")
         for fid in sorted(all_field_ids)[:10]:
@@ -387,31 +419,31 @@ def main():
             print(f"    - {fid}: {count} candidates")
         if len(all_field_ids) > 10:
             print(f"    ... and {len(all_field_ids) - 10} more")
-    
+
     if target_field_ids - all_field_ids:
         print(f"\n  Fields with zero candidates:")
         for fid in sorted(target_field_ids - all_field_ids):
             print(f"    - {fid}")
-    
+
     if possible_overmatching:
         print(f"\n  Possible overmatching (>8 candidates):")
         for fid in sorted(possible_overmatching)[:10]:
             count = sum(1 for c in all_candidates if c.field_id == fid)
             print(f"    - {fid}: {count} candidates")
-    
+
     if fuzzy_only:
         print(f"\n  Fuzzy only match (no exact/symbol):")
         for fid in sorted(fuzzy_only):
             count = sum(1 for c in all_candidates if c.field_id == fid)
             print(f"    - {fid}: {count} candidates")
-    
+
     print("=" * 60)
     print(f"\nDebug JSON path: {debug_json_path}")
     print(f"Candidates JSON path: {candidates_json_path}")
     print(f"Candidate audit path: {audit_path}")
     print(f"Params JSON path: {params_json_path}")
     print(f"Value parse audit path: {value_audit_path}")
-    
+
     # Print value parsing summary
     active_count = sum(1 for c in all_candidates if c.candidate_status == "active")
     print(f"\nVALUE PARSING SUMMARY")
@@ -435,25 +467,25 @@ def main():
         if len(fields_without_values) > 10:
             print(f"    ... and {len(fields_without_values) - 10} more")
     print("=" * 60)
-    
+
     # ========== Step 6: Final Selector ==========
     print("\nStep 6.1: Selecting final candidates (document-based)...")
-    
+
     # Run final selector
     selection_result = select_final_candidates(parsed_params, target_fields)
-    
+
     # Save selection debug JSON
     selection_json_path = output_path.parent / "selected_params_debug.json"
     save_selection_json(selection_result, str(selection_json_path))
     print(f"  Selection JSON saved to: {selection_json_path}")
-    
+
     # Generate selector audit markdown
     selector_audit_markdown = generate_selector_audit(selection_result)
     selector_audit_path = output_path.parent / "selector_audit.md"
     with open(selector_audit_path, "w", encoding="utf-8") as f:
         f.write(selector_audit_markdown)
     print(f"  Selector audit saved to: {selector_audit_path}")
-    
+
     # Print selector summary (document-based)
     print(f"\nSELECTION SUMMARY (Step 6.1)")
     print("=" * 60)
@@ -464,7 +496,7 @@ def main():
     print(f"  total_blocked:         {selection_result['total_blocked_count']}")
     print(f"  total_missing:         {selection_result['total_missing_count']}")
     print("=" * 60)
-    
+
     # Print per-document summary
     for doc in selection_result["documents"]:
         print(f"\n  Document: {doc['file_name']} ({doc['document_id']})")
@@ -480,26 +512,26 @@ def main():
                     if p and p.get("value") is not None: val_parts.append(f"val={p['value']}")
                     val_str = ", ".join(val_parts) if val_parts else "-"
                     print(f"      - {f['field_id']}: {val_str} {p.get('original_unit', '') if p else ''} (score={f['selector_score']})")
-    
+
     # Step 7: Write Excel report
     print("\nStep 7: Writing Excel report...")
-    
+
     from utils.excel_writer import write_excel_report
     write_excel_report(selection_result, str(output_path))
     print(f"  Excel saved to: {output_path}")
-    
+
     print("\nNOTE: This is Step 7 - Excel Writer v0.")
     print("      Final Comparison sheet has final_candidate fields only.")
     print("      review_needed / blocked / missing are in separate sheets.")
     print("      Current: no unit conversion, no LLM calls.")
-    
+
     return 0
 
 
 def generate_excel_readiness_audit(parsed_params: list, target_field_ids: list) -> str:
     """
     Generate Excel readiness audit markdown report.
-    
+
     Readiness rules:
     - ready_for_final: high quality AND no critical issues
     - review_only: some issues but not critical
@@ -507,21 +539,21 @@ def generate_excel_readiness_audit(parsed_params: list, target_field_ids: list) 
     - missing: no candidates
     """
     from collections import defaultdict
-    
+
     # Group params by field_id
     by_field = defaultdict(list)
     for p in parsed_params:
         by_field[p.field_id].append(p)
-    
+
     # Target fields set
     target_set = set(target_field_ids) if target_field_ids else set()
-    
+
     # Readiness classification
     ready_fields = []
     review_fields = []
     blocked_fields = []
     missing_fields = []
-    
+
     # Critical issues that block ready_for_final
     CRITICAL_ISSUES = [
         "unit_mismatch",
@@ -535,41 +567,41 @@ def generate_excel_readiness_audit(parsed_params: list, target_field_ids: list) 
         "min_greater_than_max",
         "partial_threshold_values",
     ]
-    
+
     for field_id in sorted(target_set):
         params = by_field.get(field_id, [])
-        
+
         if not params:
             missing_fields.append(field_id)
             continue
-        
+
         # Check for critical issues
         has_critical = False
         critical_details = []
-        
+
         for p in params:
             rr = (p.review_reason or "").lower()
             for issue in CRITICAL_ISSUES:
                 if issue in rr:
                     has_critical = True
                     critical_details.append(f"{field_id}: {issue} in {p.review_reason}")
-        
+
         # Check parse_quality
         parse_qualities = set(p.parse_quality for p in params if hasattr(p, 'parse_quality'))
-        
+
         # Check if any param has unit_mismatch from unit_warning
         has_unit_mismatch = any(
             getattr(p, 'unit_warning', '') and 'mismatch' in getattr(p, 'unit_warning', '').lower()
             for p in params
         )
-        
+
         if has_critical or has_unit_mismatch:
             blocked_fields.append((field_id, params, critical_details))
         elif 'high' in parse_qualities and len(parse_qualities) == 1:
             ready_fields.append((field_id, params))
         else:
             review_fields.append((field_id, params))
-    
+
     lines = []
     lines.append("# Excel Readiness Audit (Step 5.8)")
     lines.append("")
@@ -583,17 +615,17 @@ def generate_excel_readiness_audit(parsed_params: list, target_field_ids: list) 
     lines.append(f"| missing (no candidates) | {len(missing_fields)} |")
     lines.append(f"| TOTAL | {len(ready_fields) + len(review_fields) + len(blocked_fields) + len(missing_fields)} |")
     lines.append("")
-    
+
     # Readiness status
     overall_status = "NOT READY"
     if len(ready_fields) >= 25 and len(blocked_fields) <= 5:
         overall_status = "MOSTLY READY"
     elif len(ready_fields) >= 20 and len(blocked_fields) <= 10:
         overall_status = "PARTIALLY READY"
-    
+
     lines.append(f"**Overall Status**: {overall_status}")
     lines.append("")
-    
+
     # Ready for final fields
     lines.append("## ready_for_final")
     lines.append("")
@@ -618,7 +650,7 @@ def generate_excel_readiness_audit(parsed_params: list, target_field_ids: list) 
     else:
         lines.append("*No fields ready for final.*")
         lines.append("")
-    
+
     # Review only fields
     lines.append("## review_only")
     lines.append("")
@@ -639,7 +671,7 @@ def generate_excel_readiness_audit(parsed_params: list, target_field_ids: list) 
     else:
         lines.append("*No review_only fields.*")
         lines.append("")
-    
+
     # Blocked fields
     lines.append("## blocked")
     lines.append("")
@@ -659,7 +691,7 @@ def generate_excel_readiness_audit(parsed_params: list, target_field_ids: list) 
     else:
         lines.append("*No blocked fields.*")
         lines.append("")
-    
+
     # Missing fields
     lines.append("## missing (no candidates)")
     lines.append("")
@@ -672,7 +704,7 @@ def generate_excel_readiness_audit(parsed_params: list, target_field_ids: list) 
     else:
         lines.append("*No missing fields.*")
         lines.append("")
-    
+
     return "\n".join(lines)
 
 

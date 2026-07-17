@@ -1,0 +1,398 @@
+[
+  {
+    "test_index": 0,
+    "field_id": "voltage_rating",
+    "page": 1,
+    "table": 1,
+    "row": 2,
+    "row_text": "VDS Drain-Source Voltage 1200   V TC=25C",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 1,\n  \"table_index\": 1,\n  \"row_index\": 2,\n  \"row_cells\": [\n    \"VDS\",\n    \"Drain-Source Voltage\",\n    \"1200\",\n    \"\",\n    \"\",\n    \"V\",\n    \"TC=25C\"\n  ],\n  \"row_text\": \"VDS Drain-Source Voltage 1200   V TC=25C\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 1,
+    "field_id": "current_rating",
+    "page": 1,
+    "table": 1,
+    "row": 3,
+    "row_text": "ID Drain Current (continuous) 300   A TC=25C",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 1,\n  \"table_index\": 1,\n  \"row_index\": 3,\n  \"row_cells\": [\n    \"ID\",\n    \"Drain Current (continuous)\",\n    \"300\",\n    \"\",\n    \"\",\n    \"A\",\n    \"TC=25C\"\n  ],\n  \"row_text\": \"ID Drain Current (continuous) 300   A TC=25C\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 2,
+    "field_id": "current_rating",
+    "page": 1,
+    "table": 1,
+    "row": 8,
+    "row_text": "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 1,\n  \"table_index\": 1,\n  \"row_index\": 8,\n  \"row_cells\": [\n    \"RDS(on)\",\n    \"Static Drain-Source on Resistance\",\n    \"-\",\n    \"5.3\",\n    \"6.7\",\n    \"mΩ\",\n    \"VGS=18V; ID=150A; TC=25C\"\n  ],\n  \"row_text\": \"RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 3,
+    "field_id": "current_rating",
+    "page": 1,
+    "table": 1,
+    "row": 10,
+    "row_text": "QG Total Gate Charge - 618 - nC VDD=800V; VGS=-5/+18V; ID=150A; TC=25C",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 1,\n  \"table_index\": 1,\n  \"row_index\": 10,\n  \"row_cells\": [\n    \"QG\",\n    \"Total Gate Charge\",\n    \"-\",\n    \"618\",\n    \"-\",\n    \"nC\",\n    \"VDD=800V; VGS=-5/+18V; ID=150A; TC=25C\"\n  ],\n  \"row_text\": \"QG Total Gate Charge - 618 - nC VDD=800V; VGS=-5/+18V; ID=150A; TC=25C\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 4,
+    "field_id": "voltage_rating",
+    "page": 1,
+    "table": 2,
+    "row": 3,
+    "row_text": "VDS Drain-Source Voltage  1200  V TC=25C ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 1,\n  \"table_index\": 2,\n  \"row_index\": 3,\n  \"row_cells\": [\n    \"VDS\",\n    \"Drain-Source Voltage\",\n    \"\",\n    \"1200\",\n    \"\",\n    \"V\",\n    \"TC=25C\",\n    \"\"\n  ],\n  \"row_text\": \"VDS Drain-Source Voltage  1200  V TC=25C \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 5,
+    "field_id": "current_rating",
+    "page": 1,
+    "table": 2,
+    "row": 5,
+    "row_text": "ID Drain Current (continuous)    A  ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 1,\n  \"table_index\": 2,\n  \"row_index\": 5,\n  \"row_cells\": [\n    \"ID\",\n    \"Drain Current (continuous)\",\n    \"\",\n    \"\",\n    \"\",\n    \"A\",\n    \"\",\n    \"\"\n  ],\n  \"row_text\": \"ID Drain Current (continuous)    A  \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 6,
+    "field_id": "current_rating",
+    "page": 1,
+    "table": 2,
+    "row": 10,
+    "row_text": "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 1,\n  \"table_index\": 2,\n  \"row_index\": 10,\n  \"row_cells\": [\n    \"RDS(on)\",\n    \"Static Drain-Source on Resistance\",\n    \"-\",\n    \"5.3\",\n    \"6.7\",\n    \"mΩ\",\n    \"VGS=18V; ID=150A; TC=25C\",\n    \"\"\n  ],\n  \"row_text\": \"RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A; TC=25C \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 7,
+    "field_id": "current_rating",
+    "page": 1,
+    "table": 2,
+    "row": 13,
+    "row_text": "       VDD=800V; VGS=-5/+18V; ID=150A;",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 1,\n  \"table_index\": 2,\n  \"row_index\": 13,\n  \"row_cells\": [\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"VDD=800V; VGS=-5/+18V; ID=150A;\"\n  ],\n  \"row_text\": \"       VDD=800V; VGS=-5/+18V; ID=150A;\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 8,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 0,
+    "row": 1,
+    "row_text": "VDS Drain-Source Voltage 1200 V",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 0,\n  \"row_index\": 1,\n  \"row_cells\": [\n    \"VDS\",\n    \"Drain-Source Voltage\",\n    \"1200\",\n    \"V\"\n  ],\n  \"row_text\": \"VDS Drain-Source Voltage 1200 V\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 9,
+    "field_id": "current_rating",
+    "page": 2,
+    "table": 0,
+    "row": 3,
+    "row_text": "ID Drain Current (continuous; TC=25C) 300 A",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 0,\n  \"row_index\": 3,\n  \"row_cells\": [\n    \"ID\",\n    \"Drain Current (continuous; TC=25C)\",\n    \"300\",\n    \"A\"\n  ],\n  \"row_text\": \"ID Drain Current (continuous; TC=25C) 300 A\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 10,
+    "field_id": "current_rating",
+    "page": 2,
+    "table": 0,
+    "row": 4,
+    "row_text": " Drain Current (continuous; TC=75C) 240 ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 0,\n  \"row_index\": 4,\n  \"row_cells\": [\n    \"\",\n    \"Drain Current (continuous; TC=75C)\",\n    \"240\",\n    \"\"\n  ],\n  \"row_text\": \" Drain Current (continuous; TC=75C) 240 \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 11,
+    "field_id": "current_rating",
+    "page": 2,
+    "table": 0,
+    "row": 5,
+    "row_text": "IDM Drain Current (pulsed) 480 A",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 0,\n  \"row_index\": 5,\n  \"row_cells\": [\n    \"IDM\",\n    \"Drain Current (pulsed)\",\n    \"480\",\n    \"A\"\n  ],\n  \"row_text\": \"IDM Drain Current (pulsed) 480 A\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 12,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 1,
+    "row": 2,
+    "row_text": "BVDS Drain-Source Breakdown Voltage 1200 - - V VGS=0V",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 1,\n  \"row_index\": 2,\n  \"row_cells\": [\n    \"BVDS\",\n    \"Drain-Source Breakdown Voltage\",\n    \"1200\",\n    \"-\",\n    \"-\",\n    \"V\",\n    \"VGS=0V\"\n  ],\n  \"row_text\": \"BVDS Drain-Source Breakdown Voltage 1200 - - V VGS=0V\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 13,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 1,
+    "row": 3,
+    "row_text": "IDSS Zero Gate Voltage Drain Current - - 150 μA VDS=1200V; VGS=0V",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 1,\n  \"row_index\": 3,\n  \"row_cells\": [\n    \"IDSS\",\n    \"Zero Gate Voltage Drain Current\",\n    \"-\",\n    \"-\",\n    \"150\",\n    \"μA\",\n    \"VDS=1200V; VGS=0V\"\n  ],\n  \"row_text\": \"IDSS Zero Gate Voltage Drain Current - - 150 μA VDS=1200V; VGS=0V\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 14,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 1,
+    "row": 4,
+    "row_text": "IGSS Gate-Body Leakage Current - - 1.5 μA VGS=-10/20V; VDS=0V",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 1,\n  \"row_index\": 4,\n  \"row_cells\": [\n    \"IGSS\",\n    \"Gate-Body Leakage Current\",\n    \"-\",\n    \"-\",\n    \"1.5\",\n    \"μA\",\n    \"VGS=-10/20V; VDS=0V\"\n  ],\n  \"row_text\": \"IGSS Gate-Body Leakage Current - - 1.5 μA VGS=-10/20V; VDS=0V\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 15,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 1,
+    "row": 5,
+    "row_text": "VGS(th) Gate Threshold Voltage 2 - 4 V VDS=VGS; ID=30mA",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 1,\n  \"row_index\": 5,\n  \"row_cells\": [\n    \"VGS(th)\",\n    \"Gate Threshold Voltage\",\n    \"2\",\n    \"-\",\n    \"4\",\n    \"V\",\n    \"VDS=VGS; ID=30mA\"\n  ],\n  \"row_text\": \"VGS(th) Gate Threshold Voltage 2 - 4 V VDS=VGS; ID=30mA\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 16,
+    "field_id": "current_rating",
+    "page": 2,
+    "table": 1,
+    "row": 6,
+    "row_text": "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 1,\n  \"row_index\": 6,\n  \"row_cells\": [\n    \"RDS(on)\",\n    \"Static Drain-Source on Resistance\",\n    \"-\",\n    \"5.3\",\n    \"6.7\",\n    \"mΩ\",\n    \"VGS=18V; ID=150A\"\n  ],\n  \"row_text\": \"RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 17,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 1,
+    "row": 11,
+    "row_text": "Ciss Input Capacitance - 9.15 - nF VDS=1000V; f=1MHz; VAC=25mV",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 1,\n  \"row_index\": 11,\n  \"row_cells\": [\n    \"Ciss\",\n    \"Input Capacitance\",\n    \"-\",\n    \"9.15\",\n    \"-\",\n    \"nF\",\n    \"VDS=1000V; f=1MHz; VAC=25mV\"\n  ],\n  \"row_text\": \"Ciss Input Capacitance - 9.15 - nF VDS=1000V; f=1MHz; VAC=25mV\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 18,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 1,
+    "row": 14,
+    "row_text": "Eon Turn-on Energy - 7.1 - mJ VDS=800V; VGS=-5/+18V; ID=150A; RG(ext)=5Ω; Load=50µH",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 1,\n  \"row_index\": 14,\n  \"row_cells\": [\n    \"Eon\",\n    \"Turn-on Energy\",\n    \"-\",\n    \"7.1\",\n    \"-\",\n    \"mJ\",\n    \"VDS=800V; VGS=-5/+18V; ID=150A; RG(ext)=5Ω; Load=50µH\"\n  ],\n  \"row_text\": \"Eon Turn-on Energy - 7.1 - mJ VDS=800V; VGS=-5/+18V; ID=150A; RG(ext)=5Ω; Load=50µH\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 19,
+    "field_id": "current_rating",
+    "page": 2,
+    "table": 1,
+    "row": 16,
+    "row_text": "QGS Gate-Source Charge - 174 - nC VDD=800V; VGS=-5/+18V; ID=150A",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 1,\n  \"row_index\": 16,\n  \"row_cells\": [\n    \"QGS\",\n    \"Gate-Source Charge\",\n    \"-\",\n    \"174\",\n    \"-\",\n    \"nC\",\n    \"VDD=800V; VGS=-5/+18V; ID=150A\"\n  ],\n  \"row_text\": \"QGS Gate-Source Charge - 174 - nC VDD=800V; VGS=-5/+18V; ID=150A\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 20,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 1,
+    "row": 19,
+    "row_text": "td(on) Turn-on Delay Time - 186 - ns VDS=800V; VGS=-5/+18V; ID=150A; RG(ext)=5Ω; Load=50µH",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 1,\n  \"row_index\": 19,\n  \"row_cells\": [\n    \"td(on)\",\n    \"Turn-on Delay Time\",\n    \"-\",\n    \"186\",\n    \"-\",\n    \"ns\",\n    \"VDS=800V; VGS=-5/+18V; ID=150A; RG(ext)=5Ω; Load=50µH\"\n  ],\n  \"row_text\": \"td(on) Turn-on Delay Time - 186 - ns VDS=800V; VGS=-5/+18V; ID=150A; RG(ext)=5Ω; Load=50µH\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 21,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 2,
+    "row": 2,
+    "row_text": "VDS Drain-Source Voltage 1200 V",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 2,\n  \"row_index\": 2,\n  \"row_cells\": [\n    \"VDS\",\n    \"Drain-Source Voltage\",\n    \"1200\",\n    \"V\"\n  ],\n  \"row_text\": \"VDS Drain-Source Voltage 1200 V\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 22,
+    "field_id": "current_rating",
+    "page": 2,
+    "table": 2,
+    "row": 4,
+    "row_text": " Drain Current (continuous; TC=25C) 300 ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 2,\n  \"row_index\": 4,\n  \"row_cells\": [\n    \"\",\n    \"Drain Current (continuous; TC=25C)\",\n    \"300\",\n    \"\"\n  ],\n  \"row_text\": \" Drain Current (continuous; TC=25C) 300 \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 23,
+    "field_id": "current_rating",
+    "page": 2,
+    "table": 2,
+    "row": 5,
+    "row_text": "ID   A",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 2,\n  \"row_index\": 5,\n  \"row_cells\": [\n    \"ID\",\n    \"\",\n    \"\",\n    \"A\"\n  ],\n  \"row_text\": \"ID   A\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 24,
+    "field_id": "current_rating",
+    "page": 2,
+    "table": 2,
+    "row": 6,
+    "row_text": " Drain Current (continuous; TC=75C) 240 ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 2,\n  \"row_index\": 6,\n  \"row_cells\": [\n    \"\",\n    \"Drain Current (continuous; TC=75C)\",\n    \"240\",\n    \"\"\n  ],\n  \"row_text\": \" Drain Current (continuous; TC=75C) 240 \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 25,
+    "field_id": "current_rating",
+    "page": 2,
+    "table": 2,
+    "row": 7,
+    "row_text": "IDM Drain Current (pulsed) 480 A",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 2,\n  \"row_index\": 7,\n  \"row_cells\": [\n    \"IDM\",\n    \"Drain Current (pulsed)\",\n    \"480\",\n    \"A\"\n  ],\n  \"row_text\": \"IDM Drain Current (pulsed) 480 A\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 26,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 4,
+    "row": 2,
+    "row_text": "BVDS Drain-Source Breakdown Voltage 1200 - - V VGS=0V",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 4,\n  \"row_index\": 2,\n  \"row_cells\": [\n    \"BVDS\",\n    \"Drain-Source Breakdown Voltage\",\n    \"1200\",\n    \"-\",\n    \"-\",\n    \"V\",\n    \"VGS=0V\"\n  ],\n  \"row_text\": \"BVDS Drain-Source Breakdown Voltage 1200 - - V VGS=0V\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 27,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 4,
+    "row": 3,
+    "row_text": "IDSS Zero Gate Voltage Drain Current - - 150 μA VDS=1200V; VGS=0V",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 4,\n  \"row_index\": 3,\n  \"row_cells\": [\n    \"IDSS\",\n    \"Zero Gate Voltage Drain Current\",\n    \"-\",\n    \"-\",\n    \"150\",\n    \"μA\",\n    \"VDS=1200V; VGS=0V\"\n  ],\n  \"row_text\": \"IDSS Zero Gate Voltage Drain Current - - 150 μA VDS=1200V; VGS=0V\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 28,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 4,
+    "row": 4,
+    "row_text": "IGSS Gate-Body Leakage Current - - 1.5 μA VGS=-10/20V; VDS=0V",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 4,\n  \"row_index\": 4,\n  \"row_cells\": [\n    \"IGSS\",\n    \"Gate-Body Leakage Current\",\n    \"-\",\n    \"-\",\n    \"1.5\",\n    \"μA\",\n    \"VGS=-10/20V; VDS=0V\"\n  ],\n  \"row_text\": \"IGSS Gate-Body Leakage Current - - 1.5 μA VGS=-10/20V; VDS=0V\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 29,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 4,
+    "row": 5,
+    "row_text": "VGS(th) Gate Threshold Voltage 2 - 4 V VDS=VGS; ID=30mA",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 4,\n  \"row_index\": 5,\n  \"row_cells\": [\n    \"VGS(th)\",\n    \"Gate Threshold Voltage\",\n    \"2\",\n    \"-\",\n    \"4\",\n    \"V\",\n    \"VDS=VGS; ID=30mA\"\n  ],\n  \"row_text\": \"VGS(th) Gate Threshold Voltage 2 - 4 V VDS=VGS; ID=30mA\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 30,
+    "field_id": "current_rating",
+    "page": 2,
+    "table": 4,
+    "row": 6,
+    "row_text": "RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 4,\n  \"row_index\": 6,\n  \"row_cells\": [\n    \"RDS(on)\",\n    \"Static Drain-Source on Resistance\",\n    \"-\",\n    \"5.3\",\n    \"6.7\",\n    \"mΩ\",\n    \"VGS=18V; ID=150A\"\n  ],\n  \"row_text\": \"RDS(on) Static Drain-Source on Resistance - 5.3 6.7 mΩ VGS=18V; ID=150A\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 31,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 4,
+    "row": 14,
+    "row_text": "Coss Output Capacitance - 0.29 -  VDS=1000V; f=1MHz; VAC=25mV",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 4,\n  \"row_index\": 14,\n  \"row_cells\": [\n    \"Coss\",\n    \"Output Capacitance\",\n    \"-\",\n    \"0.29\",\n    \"-\",\n    \"\",\n    \"VDS=1000V; f=1MHz; VAC=25mV\"\n  ],\n  \"row_text\": \"Coss Output Capacitance - 0.29 -  VDS=1000V; f=1MHz; VAC=25mV\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 32,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 4,
+    "row": 17,
+    "row_text": "      VDS=800V; VGS=-5/+18V; ID=150A;",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 4,\n  \"row_index\": 17,\n  \"row_cells\": [\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"VDS=800V; VGS=-5/+18V; ID=150A;\"\n  ],\n  \"row_text\": \"      VDS=800V; VGS=-5/+18V; ID=150A;\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 33,
+    "field_id": "current_rating",
+    "page": 2,
+    "table": 4,
+    "row": 22,
+    "row_text": "QGD Gate-Drain Charge - 147 - nC VDD=800V; VGS=-5/+18V; ID=150A",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 4,\n  \"row_index\": 22,\n  \"row_cells\": [\n    \"QGD\",\n    \"Gate-Drain Charge\",\n    \"-\",\n    \"147\",\n    \"-\",\n    \"nC\",\n    \"VDD=800V; VGS=-5/+18V; ID=150A\"\n  ],\n  \"row_text\": \"QGD Gate-Drain Charge - 147 - nC VDD=800V; VGS=-5/+18V; ID=150A\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 34,
+    "field_id": "voltage_rating",
+    "page": 2,
+    "table": 4,
+    "row": 26,
+    "row_text": "      VDS=800V; VGS=-5/+18V; ID=150A;",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 2,\n  \"table_index\": 4,\n  \"row_index\": 26,\n  \"row_cells\": [\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"VDS=800V; VGS=-5/+18V; ID=150A;\"\n  ],\n  \"row_text\": \"      VDS=800V; VGS=-5/+18V; ID=150A;\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 35,
+    "field_id": "trr",
+    "page": 3,
+    "table": 0,
+    "row": 3,
+    "row_text": "tRR Reverse Recovery Time - 96 - ns VGS=-5/+18V; IF=150A; VR=800V; RG(ext)=5Ω; Load=50µH",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 3,\n  \"table_index\": 0,\n  \"row_index\": 3,\n  \"row_cells\": [\n    \"tRR\",\n    \"Reverse Recovery Time\",\n    \"-\",\n    \"96\",\n    \"-\",\n    \"ns\",\n    \"VGS=-5/+18V; IF=150A; VR=800V; RG(ext)=5Ω; Load=50µH\"\n  ],\n  \"row_text\": \"tRR Reverse Recovery Time - 96 - ns VGS=-5/+18V; IF=150A; VR=800V; RG(ext)=5Ω; Load=50µH\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 36,
+    "field_id": "trr",
+    "page": 3,
+    "table": 2,
+    "row": 4,
+    "row_text": " tRR Reverse Recovery Time - 96 - ns ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 3,\n  \"table_index\": 2,\n  \"row_index\": 4,\n  \"row_cells\": [\n    \"\",\n    \"tRR\",\n    \"Reverse Recovery Time\",\n    \"-\",\n    \"96\",\n    \"-\",\n    \"ns\",\n    \"\"\n  ],\n  \"row_text\": \" tRR Reverse Recovery Time - 96 - ns \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 37,
+    "field_id": "current_rating",
+    "page": 4,
+    "table": 0,
+    "row": 9,
+    "row_text": "Drain-Source Current, IDS(A) 300   On Resistance, RDS(on) 1",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 4,\n  \"table_index\": 0,\n  \"row_index\": 9,\n  \"row_cells\": [\n    \"Drain-Source Current, IDS(A)\",\n    \"300\",\n    \"\",\n    \"\",\n    \"On Resistance, RDS(on)\",\n    \"1\"\n  ],\n  \"row_text\": \"Drain-Source Current, IDS(A) 300   On Resistance, RDS(on) 1\"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 38,
+    "field_id": "voltage_rating",
+    "page": 4,
+    "table": 1,
+    "row": 1,
+    "row_text": "    VDS=20V  ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 4,\n  \"table_index\": 1,\n  \"row_index\": 1,\n  \"row_cells\": [\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"VDS=20V\",\n    \"\",\n    \"\"\n  ],\n  \"row_text\": \"    VDS=20V  \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 39,
+    "field_id": "current_rating",
+    "page": 4,
+    "table": 1,
+    "row": 9,
+    "row_text": " 1.5 Drain-Source Current, IDS(A)    ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 4,\n  \"table_index\": 1,\n  \"row_index\": 9,\n  \"row_cells\": [\n    \"\",\n    \"1.5\",\n    \"Drain-Source Current, IDS(A)\",\n    \"\",\n    \"\",\n    \"\",\n    \"\"\n  ],\n  \"row_text\": \" 1.5 Drain-Source Current, IDS(A)    \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 40,
+    "field_id": "voltage_rating",
+    "page": 5,
+    "table": 0,
+    "row": 1,
+    "row_text": " VGS=-5/+18V VDS=800V L=100μH     ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 5,\n  \"table_index\": 0,\n  \"row_index\": 1,\n  \"row_cells\": [\n    \"\",\n    \"VGS=-5/+18V VDS=800V L=100μH\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\"\n  ],\n  \"row_text\": \" VGS=-5/+18V VDS=800V L=100μH     \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 41,
+    "field_id": "current_rating",
+    "page": 5,
+    "table": 0,
+    "row": 6,
+    "row_text": "   80 Drain-Source Current, IDS (A) 120 160 200 ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 5,\n  \"table_index\": 0,\n  \"row_index\": 6,\n  \"row_cells\": [\n    \"\",\n    \"\",\n    \"\",\n    \"80 Drain-Source Current, IDS (A)\",\n    \"120\",\n    \"160 200\",\n    \"\"\n  ],\n  \"row_text\": \"   80 Drain-Source Current, IDS (A) 120 160 200 \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 42,
+    "field_id": "voltage_rating",
+    "page": 5,
+    "table": 1,
+    "row": 18,
+    "row_text": "Drain-Source Voltage, VDS (V)           Gate Charge, QG (nC)   ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 5,\n  \"table_index\": 1,\n  \"row_index\": 18,\n  \"row_cells\": [\n    \"Drain-Source Voltage, VDS (V)\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"Gate Charge, QG (nC)\",\n    \"\",\n    \"\",\n    \"\"\n  ],\n  \"row_text\": \"Drain-Source Voltage, VDS (V)           Gate Charge, QG (nC)   \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  },
+  {
+    "test_index": 43,
+    "field_id": "voltage_rating",
+    "page": 5,
+    "table": 2,
+    "row": 2,
+    "row_text": "           VDS=800V   ",
+    "prompt": "# Agent 1: Table Row Classifier\n\n## 任务\n\n你是一个 SiC MOSFET 模块 datasheet 参数分类器。\n\n给定一行 Camelot 提取的 datasheet 表格数据，判断这是什么参数。\n\n## 目标参数列表\n\n只识别以下 5 个参数：\n\n| field_id | 英文名 | 典型符号 |\n|----------|--------|----------|\n| voltage_rating | Drain-Source Voltage | VDS |\n| current_rating | Drain Current | ID |\n| rds_on_25c | RDS(on) @25°C | RDS(on) |\n| vgs_th | Gate Threshold Voltage | VGS(th) |\n| trr | Reverse Recovery Time | tRR, trr |\n\n## 输入数据\n\n```json\n{{\n  \"page_number\": 5,\n  \"table_index\": 2,\n  \"row_index\": 2,\n  \"row_cells\": [\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"\",\n    \"VDS=800V\",\n    \"\",\n    \"\",\n    \"\"\n  ],\n  \"row_text\": \"           VDS=800V   \"\n}}\n```\n\n## 输出格式\n\n输出严格 JSON，不要 markdown：\n\n```json\n{\n  \"is_target_parameter\": true/false,\n  \"field_id\": \"voltage_rating\" / null,\n  \"confidence\": 0.0-1.0,\n  \"extracted_values\": {\"min\": null, \"typ\": null, \"max\": null, \"value\": null},\n  \"unit\": \"V\" / null,\n  \"condition\": \"TC=25°C\" / null,\n  \"reasoning\": \"为什么判断\",\n  \"warnings\": []\n}\n```\n\n## 判断标准\n\n### voltage_rating (VDS)\n- 符号列包含 \"VDS\" 或 \"Drain-Source Voltage\"\n- 单位是 V\n- 值通常是 1200, 1700 等\n\n### current_rating (ID)\n- 符号列包含 \"ID\" 或 \"Drain Current\"\n- 单位是 A\n- 通常有 \"continuous\" 或 \"pulsed\"\n\n### rds_on_25c\n- 符号列包含 \"RDS(on)\"\n- 单位是 mΩ\n- 条件必须包含 TC=25°C\n\n### vgs_th\n- 符号列包含 \"VGS(th)\" 或 \"Gate Threshold Voltage\"\n- 单位是 V\n- 值通常是范围如 2-4 V\n\n### trr\n- 符号列包含 \"tRR\" 或 \"trr\"\n- 单位是 ns\n\n## 输出要求\n\n只输出 JSON，不要其他文字。"
+  }
+]
