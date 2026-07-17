@@ -18,7 +18,7 @@ from typing import Dict, List, Any, Optional, Tuple, Set
 
 from rapidfuzz import fuzz
 
-from pipeline.models import RawExtractedParam, ParamStatus, ExtractionMethod
+from legacy_pipeline.models import RawExtractedParam, ParamStatus, ExtractionMethod
 
 
 # Match type enum-like constants

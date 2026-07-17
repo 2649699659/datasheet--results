@@ -18,7 +18,7 @@ import re
 from typing import Dict, List, Any, Optional, Tuple, Set
 from dataclasses import dataclass, field
 
-from pipeline.models import RawExtractedParam, ParamStatus, ExtractionMethod, UnitConversionStatus
+from legacy_pipeline.models import RawExtractedParam, ParamStatus, ExtractionMethod, UnitConversionStatus
 
 
 # Unit patterns for extraction

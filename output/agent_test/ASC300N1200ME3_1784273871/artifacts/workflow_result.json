@@ -1,0 +1,13 @@
+{
+  "pdf_path": "tests/sample_datasheets/ASC300N1200ME3.pdf",
+  "output_xlsx": "",
+  "status": "failed",
+  "errors": [],
+  "warnings": [
+    "Step 1 (Agent 1) failed: No API key found in environment (OPENAI_API_KEY or MINIMAX_API_KEY)"
+  ],
+  "elapsed_seconds": 9.418666124343872,
+  "agent1_summary": null,
+  "agent2_summary": null,
+  "agent3_summary": null
+}

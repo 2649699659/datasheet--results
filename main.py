@@ -3,8 +3,15 @@
 Datasheet Extractor - CLI Entry Point
 
 Usage:
-    python3 main.py --input datasheets/ --output output/final_comparison.xlsx
-    python3 main.py --pdf datasheets/sample.pdf --output output/final_comparison.xlsx
+    # New Agent Workflow (recommended):
+    python3 main.py --pdf datasheets/sample.pdf --output output/ --agent
+    python3 main.py --pdf datasheets/sample.pdf --output output/ --agent --verbose
+
+    # Legacy Pipeline:
+    python3 main.py --pdf datasheets/sample.pdf --output output/ --legacy
+    python3 main.py --input datasheets/ --output output/ --legacy
+
+    # Config:
     python3 main.py --validate-config
     python3 main.py --test-units
 """
@@ -18,19 +25,19 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from pipeline.extractor import (
+from legacy_pipeline.extractor import (
     extract_pdf,
     extract_pdfs_from_directory,
     process_page_tables,
     create_debug_output,
     print_summary,
 )
-from pipeline.parser import (
+from legacy_pipeline.parser import (
     parse_table_candidates,
     candidates_to_debug_json,
     generate_candidate_audit,
 )
-from pipeline.value_parser import (
+from legacy_pipeline.value_parser import (
     parse_candidate_values,
     params_to_debug_json,
     generate_value_parse_audit,
@@ -42,7 +49,7 @@ from utils.config_loader import (
     print_validation_report,
 )
 from utils.unit_converter import test_conversions
-from pipeline.final_selector import (
+from legacy_pipeline.final_selector import (
     select_final_candidates,
     generate_selector_audit,
     save_selection_json,
@@ -108,6 +115,24 @@ def parse_args():
         choices=["pdfplumber", "camelot"],
         default="pdfplumber",
         help="Table extraction backend (default: pdfplumber)"
+    )
+
+    parser.add_argument(
+        "--agent",
+        action="store_true",
+        help="Use the new Agent Workflow (recommended). Runs: Step0→Agent1→Agent2→Agent3→Excel"
+    )
+
+    parser.add_argument(
+        "--legacy",
+        action="store_true",
+        help="Use the legacy rule-based pipeline (default if neither --agent nor --legacy specified)"
+    )
+
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Verbose output (for --agent mode)"
     )
 
     return parser.parse_args()
@@ -178,6 +203,40 @@ def test_units():
     return 0 if overall_passed else 1
 
 
+def run_agent_workflow(args) -> int:
+    """Run the new Agent Workflow pipeline."""
+    import logging
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s: %(message)s",
+    )
+
+    # Validate required args
+    if not args.pdf:
+        print("Error: --pdf is required for --agent mode")
+        print("(Note: --agent mode currently supports single PDF only)")
+        return 1
+
+    if not args.output:
+        print("Error: --output is required for --agent mode")
+        return 1
+
+    output_path = Path(args.output)
+
+    print(f"Agent Workflow")
+    print(f"==============")
+    print(f"PDF: {args.pdf}")
+    print(f"Output: {output_path}")
+    print()
+
+    from agent_workflow.runner import run_workflow
+    result = run_workflow(args.pdf, str(output_path))
+
+    if result.status == "failed":
+        return 1
+    return 0
+
+
 def main():
     """Main entry point."""
     args = parse_args()
@@ -189,6 +248,10 @@ def main():
     # Handle --test-units
     if args.test_units:
         return test_units()
+
+    # Handle --agent (new Agent Workflow)
+    if args.agent:
+        return run_agent_workflow(args)
 
     # Validate that output is specified for normal operation
     if not args.output:

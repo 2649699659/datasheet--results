@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent1Candidates",
+  "description": "Step 1 output: Candidate row selections per field",
+  "type": "object",
+  "required": ["document_id", "file_name", "fields"],
+  "properties": {
+    "document_id": {"type": "string"},
+    "file_name": {"type": "string"},
+    "fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field_id", "candidates"],
+        "properties": {
+          "field_id": {"type": "string"},
+          "label": {"type": "string"},
+          "target_unit": {"type": "string"},
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["field_id", "candidate_type", "source_page"],
+              "properties": {
+                "field_id": {"type": "string"},
+                "label": {"type": "string"},
+                "symbol": {"type": ["string", "null"]},
+                "parameter_name": {"type": ["string", "null"]},
+                "candidate_type": {"type": "string", "enum": ["selected", "review", "rejected"]},
+                "source_page": {"type": "integer"},
+                "table_index": {"type": "integer"},
+                "row_index": {"type": "integer"},
+                "source_text": {"type": "string"},
+                "row_cells": {"type": "array", "items": {"type": "string"}},
+                "value": {"type": ["number", "null"]},
+                "min": {"type": ["number", "null"]},
+                "typ": {"type": ["number", "null"]},
+                "max": {"type": ["number", "null"]},
+                "unit": {"type": ["string", "null"]},
+                "original_unit": {"type": ["string", "null"]},
+                "condition": {"type": ["string", "null"]},
+                "confidence": {"type": "number"},
+                "match_type": {"type": "string"},
+                "warnings": {"type": "array", "items": {"type": "string"}},
+                "review_reason": {"type": ["string", "null"]}
+              }
+            }
+          },
+          "selected_candidate": {
+            "oneOf": [
+              {"type": "null"},
+              {"type": "object"}
+            ]
+          }
+        }
+      }
+    },
+    "total_candidates": {"type": "integer"},
+    "selected_count": {"type": "integer"},
+    "review_count": {"type": "integer"}
+  }
+}

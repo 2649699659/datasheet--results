@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CamelotPayload",
+  "description": "Step 0 output: Camelot table extraction result",
+  "type": "object",
+  "required": ["document_id", "file_name", "pdf_path", "pages"],
+  "properties": {
+    "document_id": {
+      "type": "string",
+      "description": "Unique document ID (MD5 of path, 12 chars)"
+    },
+    "file_name": {
+      "type": "string",
+      "description": "PDF file name"
+    },
+    "pdf_path": {
+      "type": "string",
+      "description": "Absolute PDF path"
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["page_number", "tables"],
+        "properties": {
+          "page_number": {"type": "integer"},
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["page_number", "table_index", "flavor", "rows"],
+              "properties": {
+                "page_number": {"type": "integer"},
+                "table_index": {"type": "integer"},
+                "flavor": {"type": "string", "enum": ["lattice", "stream"]},
+                "rows": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["row_index", "cells"],
+                    "properties": {
+                      "row_index": {"type": "integer"},
+                      "cells": {"type": "array", "items": {"type": "string"}}
+                    }
+                  }
+                },
+                "accuracy": {"type": ["number", "null"]},
+                "whitespace": {"type": ["number", "null"]},
+                "score": {"type": "number"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "source_backend": {"type": "string", "default": "camelot"}
+  }
+}
