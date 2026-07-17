@@ -1,0 +1,198 @@
+{
+  "document_id": "f384879d1200",
+  "file_name": "ASC300N1200ME3.pdf",
+  "source": "Agent 2 validated final_params for ASC300N1200ME3",
+  "final_params": [
+    {
+      "field_id": "voltage_rating",
+      "status": "final",
+      "value": null,
+      "min": null,
+      "typ": null,
+      "max": 1200.0,
+      "unit": "V",
+      "condition": "TC=25"
+    },
+    {
+      "field_id": "current_rating",
+      "status": "final",
+      "value": null,
+      "min": null,
+      "typ": null,
+      "max": 300.0,
+      "unit": "A",
+      "condition": "TC=25"
+    },
+    {
+      "field_id": "rds_on_25c",
+      "status": "final",
+      "value": null,
+      "min": null,
+      "typ": 5.3,
+      "max": 6.7,
+      "unit": "mΩ",
+      "condition": "TC=25; ID=150A; VGS=18V"
+    },
+    {
+      "field_id": "rds_on_150c",
+      "status": "blocked",
+      "value": null,
+      "min": null,
+      "typ": null,
+      "max": null,
+      "unit": null,
+      "condition": null,
+      "reason": "No candidate with TC=150°C condition exists"
+    },
+    {
+      "field_id": "vgs_th",
+      "status": "final",
+      "value": null,
+      "min": 2.0,
+      "typ": null,
+      "max": 4.0,
+      "unit": "V",
+      "condition": "VDS=VGS; ID=30mA"
+    },
+    {
+      "field_id": "ciss",
+      "status": "final",
+      "value": null,
+      "min": null,
+      "typ": 9.15,
+      "max": null,
+      "unit": "nF",
+      "condition": "VDS=1000V; f=1MHz"
+    },
+    {
+      "field_id": "coss",
+      "status": "final",
+      "value": null,
+      "min": null,
+      "typ": 0.29,
+      "max": null,
+      "unit": "nF",
+      "condition": "VDS=1000V; f=1MHz"
+    },
+    {
+      "field_id": "crss",
+      "status": "final",
+      "value": null,
+      "min": null,
+      "typ": 45.0,
+      "max": null,
+      "unit": "pF",
+      "condition": null
+    },
+    {
+      "field_id": "qg",
+      "status": "review_needed",
+      "value": null,
+      "min": null,
+      "typ": 618.0,
+      "max": null,
+      "unit": "nC",
+      "condition": "TC=25; ID=150A"
+    },
+    {
+      "field_id": "qgs",
+      "status": "final",
+      "value": null,
+      "min": null,
+      "typ": 174.0,
+      "max": null,
+      "unit": "nC",
+      "condition": "ID=150A"
+    },
+    {
+      "field_id": "qgd",
+      "status": "final",
+      "value": null,
+      "min": null,
+      "typ": 147.0,
+      "max": null,
+      "unit": "nC",
+      "condition": null
+    },
+    {
+      "field_id": "eon",
+      "status": "review_needed",
+      "value": null,
+      "min": null,
+      "typ": 7.1,
+      "max": null,
+      "unit": "mJ",
+      "condition": "VDS=800V; ID=150A"
+    },
+    {
+      "field_id": "eoff",
+      "status": "review_needed",
+      "value": null,
+      "min": null,
+      "typ": 7.9,
+      "max": null,
+      "unit": "mJ",
+      "condition": null
+    },
+    {
+      "field_id": "trr",
+      "status": "final",
+      "value": null,
+      "min": null,
+      "typ": 96.0,
+      "max": null,
+      "unit": "ns",
+      "condition": "VGS=-5/+18V; IF=150A; VR=800V"
+    },
+    {
+      "field_id": "qrr",
+      "status": "review_needed",
+      "value": null,
+      "min": null,
+      "typ": 1839.0,
+      "max": null,
+      "unit": "nC",
+      "condition": null
+    },
+    {
+      "field_id": "irrm",
+      "status": "review_needed",
+      "value": null,
+      "min": null,
+      "typ": 141.0,
+      "max": null,
+      "unit": "A",
+      "condition": null
+    },
+    {
+      "field_id": "err",
+      "status": "missing",
+      "value": null,
+      "min": null,
+      "typ": null,
+      "max": null,
+      "unit": null,
+      "condition": null
+    },
+    {
+      "field_id": "junction_temperature",
+      "status": "final",
+      "value": null,
+      "min": null,
+      "typ": null,
+      "max": 175.0,
+      "unit": "°C",
+      "condition": null
+    },
+    {
+      "field_id": "isol",
+      "status": "review_needed",
+      "value": null,
+      "min": null,
+      "typ": 4.2,
+      "max": null,
+      "unit": "kV",
+      "condition": null
+    }
+  ]
+}

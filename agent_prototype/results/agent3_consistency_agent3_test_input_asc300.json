@@ -1,0 +1,195 @@
+{
+  "document_id": "f384879d1200",
+  "file_name": "ASC300N1200ME3.pdf",
+  "overall_status": "consistent",
+  "consistency_checks": [
+    {
+      "rule_id": "RDS_TEMP_COEFFICIENT",
+      "rule_name": "RDS(on) 温度特性",
+      "severity": "critical",
+      "status": "skipped",
+      "fields_involved": [
+        "rds_on_25c",
+        "rds_on_150c"
+      ],
+      "details": {
+        "rds_on_25c_typ": 5.3,
+        "rds_on_150c_typ": null
+      },
+      "verdict": "SKIPPED: rds_on_150c is blocked (no TC=150°C candidate). Expected for ASC300 datasheet.",
+      "suggested_action": "none"
+    },
+    {
+      "rule_id": "GATE_CHARGE_HIERARCHY",
+      "rule_name": "栅极电荷层级",
+      "severity": "critical",
+      "status": "pass",
+      "fields_involved": [
+        "qg",
+        "qgs",
+        "qgd"
+      ],
+      "details": {
+        "qg_typ": 618.0,
+        "qgs_typ": 174.0,
+        "qgd_typ": 147.0,
+        "qgs_plus_qgd": 321.0,
+        "sum_ratio": 0.519,
+        "expected_sum_ratio": "0.3 ~ 1.3"
+      },
+      "verdict": "PASS: QG(618.0nC) > QGS(174.0nC) + QGD(147.0nC), sum_ratio=0.52x",
+      "suggested_action": "none"
+    },
+    {
+      "rule_id": "CAPACITANCE_HIERARCHY",
+      "rule_name": "电容层级",
+      "severity": "critical",
+      "status": "pass",
+      "fields_involved": [
+        "ciss",
+        "coss",
+        "crss"
+      ],
+      "details": {
+        "ciss_in_pF": 9150.0,
+        "coss_in_pF": 290.0,
+        "crss_in_pF": 45.0,
+        "ciss_to_crss_ratio": 203.3
+      },
+      "verdict": "PASS: Ciss(9150.0pF) >> Coss(290.0pF) > Crss(45.0pF), ratio=203x",
+      "suggested_action": "none"
+    },
+    {
+      "rule_id": "REVERSE_RECOVERY_CONSISTENCY",
+      "rule_name": "反向恢复一致性",
+      "severity": "high",
+      "status": "pass",
+      "fields_involved": [
+        "trr",
+        "qrr",
+        "irrm"
+      ],
+      "details": {
+        "trr_typ": 96.0,
+        "qrr_typ": 1839.0,
+        "irrm_typ": 141.0,
+        "expected_qrr_uc": 6.768,
+        "expected_qrr_nc": 6768.0,
+        "ratio_if_qrr_is_nC": 0.27,
+        "ratio_if_qrr_is_uC": 271.72,
+        "expected_range": "0.3x ~ 2.0x (if unit is correct)"
+      },
+      "verdict": "PASS: Qrr(1839.0nC) ratio=0.3x consistent when treated as nC",
+      "suggested_action": "none"
+    },
+    {
+      "rule_id": "SWITCHING_ENERGY_CONSISTENCY",
+      "rule_name": "开关能量可比性",
+      "severity": "high",
+      "status": "pass",
+      "fields_involved": [
+        "eon",
+        "eoff"
+      ],
+      "details": {
+        "eon_typ": 7.1,
+        "eoff_typ": 7.9,
+        "eon_to_eoff_ratio": 1.11,
+        "expected_range": "< 3.3x"
+      },
+      "verdict": "PASS: Eon/Eoff ratio=1.11x within acceptable range",
+      "suggested_action": "none"
+    },
+    {
+      "rule_id": "JUNCTION_TEMPERATURE_RANGE",
+      "rule_name": "Tj_max 范围合理性",
+      "severity": "high",
+      "status": "pass",
+      "fields_involved": [
+        "junction_temperature"
+      ],
+      "details": {
+        "tj_max": 175.0,
+        "typical_range": "150°C ~ 200°C"
+      },
+      "verdict": "PASS: Tj_max=175.0°C within 150-200°C range",
+      "suggested_action": "none"
+    },
+    {
+      "rule_id": "VGSTH_RANGE",
+      "rule_name": "VGS(th) 范围合理性",
+      "severity": "medium",
+      "status": "pass",
+      "fields_involved": [
+        "vgs_th"
+      ],
+      "details": {
+        "vgs_th_min": 2.0,
+        "vgs_th_max": 4.0
+      },
+      "verdict": "PASS: VGS(th)=2.0-4.0V within typical range",
+      "suggested_action": "none"
+    },
+    {
+      "rule_id": "ISOLATION_VS_VOLTAGE_RATING",
+      "rule_name": "隔离电压与额定电压关系",
+      "severity": "medium",
+      "status": "pass",
+      "fields_involved": [
+        "isol",
+        "voltage_rating"
+      ],
+      "details": {
+        "isol_typ": 4.2,
+        "vds_max": 1200.0,
+        "isol_in_V": 4200.0,
+        "ratio": 3.5
+      },
+      "verdict": "PASS: Visol(4200V) >= 0.5*VDS(1200V)",
+      "suggested_action": "none"
+    },
+    {
+      "rule_id": "RDS_ABSOLUTE_REASONABLENESS",
+      "rule_name": "RDS(on) 绝对值合理性",
+      "severity": "medium",
+      "status": "pass",
+      "fields_involved": [
+        "rds_on_25c",
+        "current_rating"
+      ],
+      "details": {
+        "rds_on_25c_typ": 5.3,
+        "id_max": 300.0,
+        "estimated_power_loss_W": 477.0,
+        "typical_note": "300A module: RDS(on) typ usually 3-10 mΩ"
+      },
+      "verdict": "PASS: rds_on_25c=5.3mΩ reasonable for 300.0A module (est. loss=477W)",
+      "suggested_action": "none"
+    },
+    {
+      "rule_id": "QG_ABSOLUTE_REASONABLENESS",
+      "rule_name": "QG 绝对值合理性",
+      "severity": "medium",
+      "status": "pass",
+      "fields_involved": [
+        "qg",
+        "current_rating"
+      ],
+      "details": {
+        "qg_typ": 618.0,
+        "id_max": 300.0,
+        "typical_range": "800V-class, >200A: QG typically 300-2000 nC"
+      },
+      "verdict": "PASS: QG=618.0nC reasonable for 300.0A/800V SiC MOSFET",
+      "suggested_action": "none"
+    }
+  ],
+  "summary": {
+    "total_checks": 10,
+    "passed": 9,
+    "failed": 0,
+    "skipped": 1,
+    "warnings": 0
+  },
+  "recommendations": []
+}
