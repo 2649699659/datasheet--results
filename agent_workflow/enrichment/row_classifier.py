@@ -134,22 +134,25 @@ class RowClassifier:
             return RowType.SECTION_TITLE
 
         # 4b. TABLE_TITLE check on full joined text (after section patterns)
-        if self._matches_table_title_pattern(joined_all):
-            return RowType.TABLE_TITLE
-
-        # ── Fallback: non-trivial cells ─────────────────────────────
-        non_trivial = [
+        # Phase 2B fix: rows with 2+ non-trivial cells cannot be TABLE_TITLE.
+        # "Order Number ASC300N1200ME3-X" has 2 non-trivial cells → PARAMETER.
+        non_trivial_full = [
             c.strip() for c in row_cells
             if c.strip() and not self._is_camelot_broken_char(c)
         ]
+        if self._matches_table_title_pattern(joined_all):
+            if len(non_trivial_full) <= 1:
+                # Single-cell row like ['Order Number'] can be TABLE_TITLE
+                return RowType.TABLE_TITLE
+            # Multi-cell row — skip TABLE_TITLE, fall through to PARAMETER/UNKNOWN
 
-        # 5a. TABLE_TITLE: first non-trivial cell matching a known table title
-        # (also handles single-cell rows like ['Order Number'])
-        if non_trivial and self._matches_table_title_pattern(non_trivial[0]):
+        # 5a. TABLE_TITLE: single-cell row matching a known table title
+        # (only for single-cell rows — multi-cell rows caught by step 4b)
+        if len(non_trivial_full) == 1 and self._matches_table_title_pattern(non_trivial_full[0]):
             return RowType.TABLE_TITLE
 
         # 5b. SECTION_TITLE: first non-trivial cell matches section patterns
-        if non_trivial and self._matches_section_title_pattern(non_trivial[0]):
+        if non_trivial_full and self._matches_section_title_pattern(non_trivial_full[0]):
             return RowType.SECTION_TITLE
 
         # 6. PARAMETER — conservative check for a data row

@@ -3,6 +3,7 @@ enricher.py — Conversion from CamelotPayload to EnrichedPayload.
 
 Phase 1: Lossless conversion with row-level classification.
 Phase 2A: Adds table/section title tracking and temperature condition resolution.
+Phase 2B: Resolves page-level headings outside Camelot table boundaries.
 
 No LLM calls. No external API keys. No file I/O.
 """
@@ -26,22 +27,38 @@ from .heading_parser import (
     extract_raw_condition_from_cells,
     extract_condition_from_heading,
 )
+from .page_heading_resolver import (
+    resolve_page_headings,
+    get_table_page_heading,
+)
+from .shared_condition_propagator import (
+    propagate_shared_conditions,
+    apply_propagation_to_source,
+)
+from .heading_parser import extract_condition_from_heading
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Main conversion
 # ─────────────────────────────────────────────────────────────────────────────
 
-def enrich_payload(payload: CamelotPayload) -> EnrichedPayload:
+def enrich_payload(
+    payload: CamelotPayload,
+    pdf_path: str | None = None,
+) -> EnrichedPayload:
     """
     Convert a CamelotPayload into an EnrichedPayload.
 
     Phase 1: Lossless conversion with row-level classification.
     Phase 2A: Adds table/section title tracking, temperature condition
-    resolution, and heading condition propagation.
+              resolution, and heading condition propagation.
+    Phase 2B (requires pdf_path): Resolves page-level headings outside
+              Camelot table boundaries and applies them to tables without
+              table-level section headings.
 
     Args:
         payload: CamelotPayload from Step 0.
+        pdf_path: Path to the PDF file (required for Phase 2B page heading resolution).
 
     Returns:
         EnrichedPayload with enriched rows.
@@ -128,6 +145,19 @@ def enrich_payload(payload: CamelotPayload) -> EnrichedPayload:
         heading_condition_overrides=0,
         ambiguous_title_rows=[],
     )
+
+    # ── Phase 2B: Page-level heading resolution ───────────────────────────
+    # Requires pdf_path and table_bbox in payload (from updated Step 0).
+    # Runs after Phase 2A, applying page-level headings only to tables
+    # that do NOT have a section_title from Phase 2A.
+    if pdf_path is not None:
+        _apply_page_headings(enriched_payload, payload, pdf_path)
+
+    # ── Phase 3A: Shared condition propagation ─────────────────────────────
+    # Propagates shared test conditions to contiguous PARAMETER rows
+    # within the same table and section. Does NOT require pdf_path.
+    apply_shared_condition_propagation(enriched_payload)
+
     enriched_payload._recompute_stats()
 
     return enriched_payload
@@ -366,6 +396,117 @@ def _make_row_id(page_number: int, table_index: int, row_index: int) -> str:
 def _deep_copy_cells(cells: list[str]) -> list[str]:
     """Deep copy a list of cell strings."""
     return [str(c) for c in cells]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 2B: Page-level heading application
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _apply_page_headings(
+    enriched_payload: EnrichedPayload,
+    camelot_payload: CamelotPayload,
+    pdf_path: str,
+) -> None:
+    """
+    Apply page-level headings to tables that don't have section titles from Phase 2A.
+
+    Phase 2B identifies page-level headings (outside Camelot table boundaries) and
+    applies them only to tables that did NOT get a section_title from Phase 2A.
+
+    This resolves the case where section headings like "Body Diode Characteristics"
+    appear outside the Camelot table (above the table) and are not captured by
+    Phase 2A's within-table row processing.
+    """
+    # Resolve page headings using the CamelotPayload (has table_bbox)
+    page_results = resolve_page_headings(camelot_payload, pdf_path)
+
+    for ep in enriched_payload.pages:
+        page_num = ep.page_number
+        if page_num not in page_results:
+            continue
+        result = page_results[page_num]
+
+        for et in ep.tables:
+            table_idx = et.table_index
+
+            # Check if this table already has a section_title from Phase 2A
+            has_phase2a_section = any(
+                row.section_title is not None
+                for row in et.rows
+                if row.row_type == RowType.PARAMETER
+            )
+            if has_phase2a_section:
+                # Table already has section context from Phase 2A — skip
+                continue
+
+            # Get page-level heading for this table (unambiguous only)
+            heading_group = get_table_page_heading(page_results, page_num, table_idx)
+            if heading_group is None:
+                continue
+
+            # Apply page-level heading conditions to parameter rows
+            for row in et.rows:
+                if row.row_type != RowType.PARAMETER:
+                    continue
+
+                # Only apply if row has no resolved_condition yet
+                if row.resolved_condition is not None:
+                    continue
+
+                # Apply page-level heading conditions
+                conditions = heading_group.default_conditions
+                if not conditions:
+                    continue
+
+                # Build resolved_condition string
+                parts = [f"{k}={v}" for k, v in conditions.items()]
+                resolved_condition_str = "; ".join(parts)
+
+                row.resolved_condition = resolved_condition_str
+                row.default_conditions = dict(conditions)
+                row.condition_sources = {
+                    "row": None,
+                    "table_heading": None,
+                    "page_heading": heading_group.full_text,
+                }
+                row.context_status = ContextStatus.RESOLVED
+                row.quality_flags = list(row.quality_flags) + ["page_heading_applied"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 3A: Shared condition propagation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def apply_shared_condition_propagation(enriched: EnrichedPayload) -> None:
+    """
+    Phase 3A: Propagate shared test conditions to contiguous PARAMETER rows.
+
+    Within the same Camelot table and section, when a group of contiguous
+    parameter rows clearly share the same test conditions, propagate the
+    conditions to rows that have empty raw_condition.
+
+    Conservative rules:
+    - Same table (no cross-table propagation)
+    - Same section or both without section_title
+    - Contiguous PARAMETER rows
+    - Source row has meaningful test conditions (VGS, IF, VR, etc.)
+    - Target row has empty raw_condition
+    - Max propagation distance <= 2
+    - Temperature conditions (TC/TJ) from Phase 2B are preserved
+
+    Note: Without cell-level coordinate evidence, this is INFERRED shared
+    condition propagation, NOT confirmed merged cell recovery.
+    """
+    result = propagate_shared_conditions(enriched)
+
+    # Mark source rows
+    apply_propagation_to_source(enriched, result)
+
+    # Update Phase 3A diagnostics in EnrichedPayload
+    enriched.shared_condition_groups_detected = result.groups_detected
+    enriched.shared_conditions_propagated = result.propagated_count
+    enriched.ambiguous_shared_groups = result.ambiguous_groups
+    enriched.condition_conflicts = result.conflicts
 
 
 # ─────────────────────────────────────────────────────────────────────────────

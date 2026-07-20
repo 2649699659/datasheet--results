@@ -62,8 +62,12 @@ class EnrichedRow:
     default_conditions: dict[str, str] = field(default_factory=dict)
 
     # Phase 2A: Condition sources (where the condition came from)
-    # Structure: {"row": str | None, "table_heading": str | None}
+    # Structure: {"row": str | None, "table_heading": str | None, "page_heading": str | None}
     condition_sources: dict[str, str | None] | None = None
+
+    # Phase 3A: Shared condition propagation
+    shared_condition_group_id: str | None = None       # e.g., "p3_t0_group_1"
+    shared_condition_source_row_id: str | None = None  # e.g., "p3_t0_r3"
 
     # Status & quality
     context_status: ContextStatus = ContextStatus.UNCHANGED
@@ -83,6 +87,8 @@ class EnrichedRow:
             "resolved_condition": self.resolved_condition,
             "default_conditions": self.default_conditions,
             "condition_sources": self.condition_sources,
+            "shared_condition_group_id": self.shared_condition_group_id,
+            "shared_condition_source_row_id": self.shared_condition_source_row_id,
             "context_status": self.context_status.value if isinstance(self.context_status, ContextStatus) else self.context_status,
             "quality_flags": self.quality_flags,
         }
@@ -102,6 +108,8 @@ class EnrichedRow:
             resolved_condition=d.get("resolved_condition"),
             default_conditions=dict(d.get("default_conditions", {})),
             condition_sources=d.get("condition_sources"),
+            shared_condition_group_id=d.get("shared_condition_group_id"),
+            shared_condition_source_row_id=d.get("shared_condition_source_row_id"),
             context_status=ContextStatus(d["context_status"]) if d["context_status"] in [e.value for e in ContextStatus] else d.get("context_status", "unchanged"),
             quality_flags=list(d.get("quality_flags", [])),
         )
@@ -210,6 +218,12 @@ class EnrichedPayload:
     heading_condition_overrides: int = 0      # row-level condition overrode heading
     ambiguous_title_rows: list[str] = field(default_factory=list)  # row_ids that couldn't be titled
 
+    # Phase 3A: Shared condition propagation diagnostics
+    shared_condition_groups_detected: int = 0
+    shared_conditions_propagated: int = 0
+    ambiguous_shared_groups: int = 0
+    condition_conflicts: int = 0
+
     def to_dict(self) -> dict:
         return {
             "document_id": self.document_id,
@@ -225,6 +239,10 @@ class EnrichedPayload:
             "heading_conditions_applied": self.heading_conditions_applied,
             "heading_condition_overrides": self.heading_condition_overrides,
             "ambiguous_title_rows": self.ambiguous_title_rows,
+            "shared_condition_groups_detected": self.shared_condition_groups_detected,
+            "shared_conditions_propagated": self.shared_conditions_propagated,
+            "ambiguous_shared_groups": self.ambiguous_shared_groups,
+            "condition_conflicts": self.condition_conflicts,
         }
 
     @classmethod
@@ -243,11 +261,15 @@ class EnrichedPayload:
             heading_conditions_applied=d.get("heading_conditions_applied", 0),
             heading_condition_overrides=d.get("heading_condition_overrides", 0),
             ambiguous_title_rows=list(d.get("ambiguous_title_rows", [])),
+            shared_condition_groups_detected=d.get("shared_condition_groups_detected", 0),
+            shared_conditions_propagated=d.get("shared_conditions_propagated", 0),
+            ambiguous_shared_groups=d.get("ambiguous_shared_groups", 0),
+            condition_conflicts=d.get("condition_conflicts", 0),
         )
 
     def _recompute_stats(self) -> None:
         """
-        Recompute row counts, type distribution, and Phase 2A diagnostics.
+        Recompute row counts, type distribution, and Phase 2A/3A diagnostics.
         """
         self.enriched_row_count = 0
         self.row_type_counts = {}
@@ -257,6 +279,10 @@ class EnrichedPayload:
         self.heading_conditions_applied = 0
         self.heading_condition_overrides = 0
         self.ambiguous_title_rows = []
+        self.shared_condition_groups_detected = 0
+        self.shared_conditions_propagated = 0
+        self.ambiguous_shared_groups = 0
+        self.condition_conflicts = 0
 
         for page in self.pages:
             for table in page.tables:
@@ -280,3 +306,7 @@ class EnrichedPayload:
                             self.heading_condition_overrides += 1
                     if row.context_status == ContextStatus.AMBIGUOUS:
                         self.ambiguous_title_rows.append(row.row_id)
+
+                    # Phase 3A diagnostics
+                    if row.shared_condition_group_id:
+                        self.shared_conditions_propagated += 1

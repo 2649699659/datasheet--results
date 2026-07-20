@@ -39,6 +39,12 @@ class CamelotTable:
     accuracy: float | None
     whitespace: float | None
     score: float = 0.0  # quality score
+    # Phase 2B: bounding box in PDF points (x1, y1, x2, y2) where origin is bottom-left.
+    # Optional — backward compatible with payloads that lack this field.
+    # Conversion to pdfplumber coords (origin top-left):
+    #   pdfplumber_top = page_height - bbox_y2
+    #   pdfplumber_bottom = page_height - bbox_y1
+    table_bbox: tuple[float, float, float, float] | None = None
 
 
 @dataclass
@@ -81,6 +87,7 @@ class CamelotPayload:
                             "accuracy": t.accuracy,
                             "whitespace": t.whitespace,
                             "score": t.score,
+                            "table_bbox": t.table_bbox,
                         }
                         for t in p.tables
                     ]
@@ -108,6 +115,7 @@ class CamelotPayload:
                     accuracy=t.get("accuracy"),
                     whitespace=t.get("whitespace"),
                     score=t.get("score", 0.0),
+                    table_bbox=t.get("table_bbox"),
                 ))
             pages.append(CamelotPage(page_number=p["page_number"], tables=tables))
         return cls(

@@ -84,6 +84,7 @@ def _extract_tables_from_camelot(
                     accuracy=accuracy,
                     whitespace=whitespace,
                     score=score,
+                    table_bbox=camelot_table._bbox,  # Phase 2B: extract spatial bbox
                 ))
 
             logger.info(f"Camelot {flavor}: found {result.n} table(s)")
