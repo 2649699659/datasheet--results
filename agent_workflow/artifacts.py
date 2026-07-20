@@ -18,6 +18,17 @@ from .contracts import (
     WorkflowResult,
 )
 
+# Lazy import to avoid circular dependency
+_enrichment = None
+
+
+def _get_enriched_payload():
+    global _enrichment
+    if _enrichment is None:
+        from .enrichment.models import EnrichedPayload
+        _enrichment = EnrichedPayload
+    return _enrichment
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Paths
@@ -44,6 +55,10 @@ class ArtifactPaths:
     # Step 0: Camelot payload
     def step0_payload(self) -> Path:
         return self.artifacts_dir / "step0_camelot_payload.json"
+
+    # Step 0.5: Enriched payload
+    def step0_5_enriched_payload(self) -> Path:
+        return self.artifacts_dir / "step0_5_enriched_payload.json"
 
     # Step 1: Agent 1 candidates
     def step1_candidates(self) -> Path:
@@ -90,6 +105,17 @@ def save_payload(payload: CamelotPayload, path: Path) -> None:
 def load_payload(path: Path) -> CamelotPayload:
     with open(path, encoding="utf-8") as f:
         return CamelotPayload.from_dict(json.load(f))
+
+
+def save_enriched_payload(enriched, path: Path) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(enriched.to_dict(), f, ensure_ascii=False, indent=2)
+
+
+def load_enriched_payload(path: Path):
+    EnrichedPayload = _get_enriched_payload()
+    with open(path, encoding="utf-8") as f:
+        return EnrichedPayload.from_dict(json.load(f))
 
 
 def save_agent1(result: Agent1Result, path: Path) -> None:

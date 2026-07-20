@@ -20,7 +20,12 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 
-from contracts import Agent2Result, Agent3Result, FieldStatus, ConsistencyCheck
+from agent_workflow.contracts import (
+    Agent2Result,
+    Agent3Result,
+    FieldStatus,
+    ConsistencyCheck,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
