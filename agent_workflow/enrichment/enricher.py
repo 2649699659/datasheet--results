@@ -20,6 +20,7 @@ from .models import (
     RowType,
     ContextStatus,
 )
+from .shared_condition_propagator import _has_meaningful_test_conditions
 from .row_classifier import RowClassifier
 from .heading_parser import (
     parse_temperature_from_text,
@@ -35,7 +36,6 @@ from .shared_condition_propagator import (
     propagate_shared_conditions,
     apply_propagation_to_source,
 )
-from .heading_parser import extract_condition_from_heading
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -41,8 +41,9 @@ def run(payload: CamelotPayload, artifact_paths: ArtifactPaths) -> EnrichedPaylo
     """
     logger.info("Step 0.5: Enriching context from CamelotPayload")
 
-    # Perform enrichment
-    enriched = enrich_payload(payload)
+    # Perform enrichment (Phase 1, 2A, 2B, 3A)
+    # pdf_path is required for Phase 2B (page-level heading resolution)
+    enriched = enrich_payload(payload, pdf_path=payload.pdf_path)
 
     logger.info(
         f"Step 0.5: Enriched {enriched.enriched_row_count} rows "

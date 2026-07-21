@@ -155,6 +155,22 @@ def _has_meaningful_test_conditions(condition_str: str) -> bool:
     return False
 
 
+def _has_test_conditions(condition_str: str) -> bool:
+    """
+    Check if a condition string has test conditions (not just temperature).
+
+    Returns True if the condition has at least one key that is NOT a temperature key.
+    Used to determine if Phase 2B set temperature-only or with test conditions.
+    """
+    parsed = _parse_condition(condition_str)
+    if not parsed:
+        return False
+    for key in parsed:
+        if key.upper() not in TEMPERATURE_KEYS:
+            return True
+    return False
+
+
 def _get_temperature_conditions(condition_str: str) -> dict[str, str]:
     """Extract only temperature conditions (TC, TJ, T) from a condition string."""
     parsed = _parse_condition(condition_str)
@@ -213,8 +229,20 @@ def propagate_shared_conditions(
 
                 # This is a PARAMETER row
                 # Check if it has a non-empty raw_condition with meaningful test conditions
+                # BUT: Skip rows that only have VGS and/or IF without other test conditions.
+                # These are not true test condition sources (e.g., VFSD has VGS=0V; IF=150A).
+                # Real test condition sources have VR, RG, Load, or other specific conditions.
                 if row.raw_condition and _has_meaningful_test_conditions(row.raw_condition):
-                    # This is a potential SOURCE row
+                    # Additional check: skip rows that only have VGS and/or IF
+                    parsed = _parse_condition(row.raw_condition)
+                    test_keys = set(k.upper() for k in parsed.keys())
+                    non_vgs_if_keys = test_keys - {"VGS", "IF"}
+                    if not non_vgs_if_keys:
+                        # Row only has VGS and/or IF - not a true test condition source
+                        i += 1
+                        continue
+
+                    # This is a SOURCE row (has real test conditions beyond VGS/IF)
                     # Find contiguous subsequent PARAMETER rows with empty condition
                     source_row = row
                     source_condition = source_row.raw_condition
@@ -258,36 +286,6 @@ def propagate_shared_conditions(
                         # This target qualifies for propagation
                         propagation_distance += 1
 
-                        # Build the final condition for this target
-                        # Priority: target's page heading (TJ=25°C) + source's test conditions
-                        merged_conditions = dict(source_parsed)
-
-                        # Add page heading temperature if available (from Phase 2B)
-                        if target_row.default_conditions:
-                            # default_conditions from Phase 2B has TJ=25°C from page heading
-                            for k, v in target_row.default_conditions.items():
-                                if k.upper() in TEMPERATURE_KEYS:
-                                    if k not in merged_conditions:
-                                        merged_conditions[k] = v
-
-                        # Check for conflicts: if target's default_conditions has same key as source
-                        # (shouldn't happen in normal case, but check anyway)
-                        conflict = False
-                        if target_row.default_conditions:
-                            for k in source_parsed:
-                                if k.upper() in TEMPERATURE_KEYS:
-                                    continue
-                                if k in target_row.default_conditions:
-                                    # Conflict! But since source is non-temperature and target is temperature,
-                                    # there shouldn't be a conflict
-                                    pass
-
-                        # Build resolved_condition string
-                        resolved_parts = []
-                        for k, v in merged_conditions.items():
-                            resolved_parts.append(f"{k}={v}")
-                        resolved_condition_str = "; ".join(sorted(resolved_parts))
-
                         # Apply to target row
                         target_row.shared_condition_group_id = group_id
                         target_row.shared_condition_source_row_id = source_row.row_id
@@ -301,17 +299,24 @@ def propagate_shared_conditions(
                         if "shared_condition_propagated" not in target_row.quality_flags:
                             target_row.quality_flags.append("shared_condition_propagated")
 
-                        # IMPORTANT: Only update resolved_condition if the row does NOT
-                        # already have a resolved_condition from Phase 2A (which would have
-                        # temperature from section heading).
-                        # Phase 3A is for rows with empty raw_condition that need
-                        # conditions inferred from neighboring rows.
-                        # Do NOT overwrite Phase 2A's resolved_condition.
-                        if target_row.resolved_condition is None:
-                            # Build resolved_condition from shared conditions
+                        # Build resolved_condition from source test conditions + Phase 2B temperature
+                        # Phase 3A adds test conditions to targets. But:
+                        # - If resolved_condition is None: add test conditions (normal case)
+                        # - If resolved_condition has test conditions (Phase 2A): don't add (keep Phase 2A)
+                        # - If resolved_condition has ONLY temperature (Phase 2B): add test conditions
+                        # The last case is when Phase 2B set temperature but no test conditions.
+                        should_overwrite = (
+                            target_row.resolved_condition is None or
+                            (
+                                "page_heading_applied" in target_row.quality_flags and
+                                not _has_test_conditions(target_row.resolved_condition or "")
+                            )
+                        )
+
+                        if should_overwrite:
                             merged = dict(source_parsed)
 
-                            # Add temperature conditions from page heading (if available from Phase 2B)
+                            # Add temperature from Phase 2B (page heading)
                             if target_row.default_conditions:
                                 for k, v in target_row.default_conditions.items():
                                     if k.upper() in TEMPERATURE_KEYS:
@@ -345,28 +350,38 @@ def propagate_shared_conditions(
                     if propagation_distance > 0:
                         result.groups_detected += 1
 
-                        # Update SOURCE row's resolved_condition only if it doesn't have one
-                        # Phase 2B sets resolved_condition for the source row if page heading is available.
-                        # Phase 3A should NOT overwrite Phase 2B's resolved_condition.
-                        if source_row.resolved_condition is None:
-                            # Source row doesn't have resolved_condition from Phase 2A/2B
-                            # Merge its own test conditions + temperature from page heading
-                            source_parsed = _parse_condition(source_condition)
-                            merged_source = dict(source_parsed)
+                    # Phase 3A: Handle source row if Phase 2B set temperature-only.
+                    # This runs even when propagation_distance=0 (standalone source rows like tRR).
+                    phase2b_set_temperature = (
+                        "page_heading_applied" in source_row.quality_flags
+                    )
 
-                            # Add temperature from page heading if available from Phase 2B
+                    if phase2b_set_temperature:
+                        # Phase 2B set temperature (TJ=25°C), add test conditions from source
+                        # BUT: skip if source already has meaningful conditions from Phase 2A.
+                        # Phase 2A sets meaningful conditions (e.g., TC=25°C from section heading).
+                        # Phase 3A should NOT add test conditions to rows that already have
+                        # Phase 2A conditions.
+                        if source_row.resolved_condition and _has_test_conditions(source_row.resolved_condition):
+                            # Source already has meaningful conditions from Phase 2A - skip
+                            pass
+                        else:
+                            # Source has temperature-only from Phase 2B - add test conditions
+                            merged = {}
+                            if source_row.resolved_condition:
+                                merged = _parse_condition(source_row.resolved_condition)
+                            merged.update(source_parsed)
+
+                            # Add temperature from page heading if available
                             if source_row.default_conditions:
                                 for k, v in source_row.default_conditions.items():
                                     if k.upper() in TEMPERATURE_KEYS:
-                                        if k not in merged_source:
-                                            merged_source[k] = v
+                                        if k not in merged:
+                                            merged[k] = v
 
-                            source_parts = [f"{k}={v}" for k, v in merged_source.items()]
-                            source_row.resolved_condition = "; ".join(sorted(source_parts))
-
-                            # Also set context_status for source row
-                            if source_row.context_status == ContextStatus.UNCHANGED:
-                                source_row.context_status = ContextStatus.RESOLVED
+                            source_row.resolved_condition = "; ".join(
+                                sorted(f"{k}={v}" for k, v in merged.items())
+                            )
 
                 i += 1
 

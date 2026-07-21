@@ -33,11 +33,28 @@ from agent_workflow.enrichment import (
 # Test data paths
 # ─────────────────────────────────────────────────────────────────────────────
 
+_TEST_PAYLOAD_CACHE: CamelotPayload | None = None
+
+
 def _find_test_payload() -> Path:
     """Find the ASC300N1200ME3 CamelotPayload from a previous test run."""
+    # First check if we already generated one this session
+    global _TEST_PAYLOAD_CACHE
+    if _TEST_PAYLOAD_CACHE is not None:
+        # Return a temp path with the cached payload
+        cache_dir = PROJECT_ROOT / "output/test_payload_cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_path = cache_dir / "step0_camelot_payload.json"
+        if not cache_path.exists():
+            import json
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(_TEST_PAYLOAD_CACHE.to_dict(), f)
+        return cache_path
+
     candidates = [
         PROJECT_ROOT / "output/step4_fix_final/ASC300N1200ME3_1784528153/artifacts/step0_camelot_payload.json",
         PROJECT_ROOT / "output/sourced_env_test/ASC300N1200ME3_1784527702/artifacts/step0_camelot_payload.json",
+        PROJECT_ROOT / "output/test_payload_cache/step0_camelot_payload.json",
     ]
     for p in candidates:
         if p.exists():
@@ -48,12 +65,41 @@ def _find_test_payload() -> Path:
     )
 
 
+def _generate_test_payload() -> CamelotPayload:
+    """Generate CamelotPayload for testing using Step 0."""
+    global _TEST_PAYLOAD_CACHE
+    if _TEST_PAYLOAD_CACHE is not None:
+        return _TEST_PAYLOAD_CACHE
+
+    # Import here to avoid circular imports
+    from agent_workflow.steps.step0_build_camelot_payload import run as step0_run
+
+    pdf_path = PROJECT_ROOT / "tests/sample_datasheets/ASC300N1200ME3.pdf"
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"Test PDF not found: {pdf_path}")
+
+    # Use a temp output dir
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from agent_workflow.artifacts import ArtifactPaths
+        ap = ArtifactPaths(Path(tmpdir), "ASC300N1200ME3").ensure_dirs()
+        payload = step0_run(str(pdf_path), ap)
+
+    _TEST_PAYLOAD_CACHE = payload
+    return payload
+
+
 def _load_test_payload() -> CamelotPayload:
-    """Load the CamelotPayload for testing."""
-    path = _find_test_payload()
-    with open(path, encoding="utf-8") as f:
-        d = json.load(f)
-    return CamelotPayload.from_dict(d)
+    """Load or generate the CamelotPayload for testing."""
+    # Try to find existing cached payload first
+    try:
+        path = _find_test_payload()
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        return CamelotPayload.from_dict(d)
+    except FileNotFoundError:
+        # Generate a fresh payload
+        return _generate_test_payload()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
