@@ -166,11 +166,13 @@ def _write_final_params(ws, agent2: Agent2Result):
     # Summary row
     summary_row = len(sorted_params) + 3
     ws.cell(row=summary_row, column=1, value="Summary").font = Font(bold=True)
-    ws.cell(row=summary_row + 1, column=1, value=f"Total fields: {len(sorted_params)}")
-    ws.cell(row=summary_row + 2, column=1, value=f"Final: {sum(1 for p in sorted_params if (p.status.value if isinstance(p.status, FieldStatus) else str(p.status)) == 'final')}")
-    ws.cell(row=summary_row + 3, column=1, value=f"Review Needed: {sum(1 for p in sorted_params if (p.status.value if isinstance(p.status, FieldStatus) else str(p.status)) == 'review_needed')}")
-    ws.cell(row=summary_row + 4, column=1, value=f"Blocked: {sum(1 for p in sorted_params if (p.status.value if isinstance(p.status, FieldStatus) else str(p.status)) == 'blocked')}")
-    ws.cell(row=summary_row + 5, column=1, value=f"Missing: {sum(1 for p in sorted_params if (p.status.value if isinstance(p.status, FieldStatus) else str(p.status)) == 'missing')}")
+    ws.cell(row=summary_row + 1, column=1, value=f"Manufacturer: {agent2.manufacturer or 'missing'}")
+    ws.cell(row=summary_row + 2, column=1, value=f"Document: {agent2.document_id}")
+    ws.cell(row=summary_row + 3, column=1, value=f"Total fields: {len(sorted_params)}")
+    ws.cell(row=summary_row + 4, column=1, value=f"Final: {sum(1 for p in sorted_params if (p.status.value if isinstance(p.status, FieldStatus) else str(p.status)) == 'final')}")
+    ws.cell(row=summary_row + 5, column=1, value=f"Review Needed: {sum(1 for p in sorted_params if (p.status.value if isinstance(p.status, FieldStatus) else str(p.status)) == 'review_needed')}")
+    ws.cell(row=summary_row + 6, column=1, value=f"Blocked: {sum(1 for p in sorted_params if (p.status.value if isinstance(p.status, FieldStatus) else str(p.status)) == 'blocked')}")
+    ws.cell(row=summary_row + 7, column=1, value=f"Missing: {sum(1 for p in sorted_params if (p.status.value if isinstance(p.status, FieldStatus) else str(p.status)) == 'missing')}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -233,8 +235,8 @@ def _write_field_detail(ws, agent2: Agent2Result):
     """Write a field-by-field detail sheet."""
     ws.title = "Field Detail"
 
-    headers = ["#", "Field ID", "Status", "Typ Value", "Unit", "Condition", "Confidence", "Reason"]
-    widths = [6, 22, 14, 18, 8, 40, 12, 50]
+    headers = ["#", "Field ID", "Status", "Min", "Typ", "Max", "Unit", "Condition", "Confidence", "Reason", "Missing Reason"]
+    widths = [6, 22, 14, 12, 12, 12, 8, 40, 12, 50, 25]
 
     for col, (h, w) in enumerate(zip(headers, widths), 1):
         _header_cell(ws, 1, col, h, w)
@@ -245,15 +247,23 @@ def _write_field_detail(ws, agent2: Agent2Result):
         status_str = param.status.value if isinstance(param.status, FieldStatus) else str(param.status)
         fill = {"final": FINAL_FILL, "review_needed": REVIEW_FILL, "blocked": BLOCKED_FILL, "missing": MISSING_FILL}.get(status_str)
 
+        # Build reason text
+        reason_text = param.reason[:150] if param.reason else ""
+        if status_str == "missing" and param.missing_reason:
+            reason_text = f"[{param.missing_reason}] {reason_text}".strip()
+
         ws.row_dimensions[ri].height = 22
         _data_cell(ws, ri, 1, ri - 1, fill)
         _data_cell(ws, ri, 2, param.field_id, fill, bold=True)
         _data_cell(ws, ri, 3, status_str, fill)
-        _data_cell(ws, ri, 4, param.typ if param.typ is not None else param.value, fill)
-        _data_cell(ws, ri, 5, param.unit or "", fill)
-        _data_cell(ws, ri, 6, _normalize_condition(param.condition or "")[:80], fill)
-        _data_cell(ws, ri, 7, f"{param.confidence:.2f}" if param.confidence else "-", fill)
-        _data_cell(ws, ri, 8, param.reason[:150] if param.reason else "", fill)
+        _data_cell(ws, ri, 4, param.min, fill)
+        _data_cell(ws, ri, 5, param.typ, fill)
+        _data_cell(ws, ri, 6, param.max, fill)
+        _data_cell(ws, ri, 7, param.unit or "", fill)
+        _data_cell(ws, ri, 8, _normalize_condition(param.condition or "")[:80], fill)
+        _data_cell(ws, ri, 9, f"{param.confidence:.2f}" if param.confidence else "-", fill)
+        _data_cell(ws, ri, 10, reason_text, fill)
+        _data_cell(ws, ri, 11, param.missing_reason if status_str == "missing" and param.missing_reason else "", fill)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

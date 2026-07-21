@@ -220,12 +220,14 @@ def _parse_llm_output(content: str) -> Agent2Result:
             confidence=p.get("confidence", 0.0),
             reason=p.get("reason", ""),
             warnings=p.get("warnings", []),
+            missing_reason=p.get("missing_reason"),
         ))
 
     return Agent2Result(
         document_id=d.get("document_id", ""),
         file_name=d.get("file_name", ""),
         overall_status=d.get("overall_status", "needs_review"),
+        manufacturer=None,  # Will be set in run() from enriched_payload
         final_params=params,
         summary=d.get("summary", {
             "final_count": sum(1 for p in params if p.status == FieldStatus.FINAL),
@@ -271,6 +273,27 @@ def run(
 
     # Parse output
     result = _parse_llm_output(content)
+
+    # Set manufacturer from Phase 3B metadata (enriched_payload)
+    if enriched_payload and enriched_payload.document_metadata:
+        mfr_meta = enriched_payload.document_metadata.get("manufacturer", {})
+        if mfr_meta.get("status") == "resolved":
+            result.manufacturer = mfr_meta.get("canonical_value")
+        else:
+            result.manufacturer = None
+    else:
+        result.manufacturer = None
+
+    # Filter out manufacturer from final_params if missing (already have it at document level)
+    result.final_params = [
+        p for p in result.final_params
+        if not (p.field_id == "manufacturer" and p.status == FieldStatus.MISSING)
+    ]
+
+    # Fallback: set missing_reason to "not_explicitly_specified" if missing but reason is None
+    for p in result.final_params:
+        if p.status == FieldStatus.MISSING and p.missing_reason is None:
+            p.missing_reason = "not_explicitly_specified"
 
     # Save result
     save_agent2(result, artifact_paths.step2_final_params())

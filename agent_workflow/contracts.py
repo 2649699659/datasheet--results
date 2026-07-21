@@ -323,6 +323,7 @@ class Agent2Param:
     confidence: float
     reason: str
     warnings: list[str] = field(default_factory=list)
+    missing_reason: str | None = None  # e.g., "not_explicitly_specified", "symbol_not_found"
 
 
 @dataclass
@@ -339,6 +340,7 @@ class Agent2Result:
     document_id: str
     file_name: str
     overall_status: str  # "pass" | "needs_review" | "unsafe"
+    manufacturer: str | None  # Manufacturer from Phase 3B (e.g., "AST Technology")
     final_params: list[Agent2Param]
     summary: dict  # final_count, review_needed_count, missing_count, blocked_count
 
@@ -347,6 +349,7 @@ class Agent2Result:
             "document_id": self.document_id,
             "file_name": self.file_name,
             "overall_status": self.overall_status,
+            "manufacturer": self.manufacturer,
             "final_params": [
                 {
                     "field_id": p.field_id,
@@ -364,6 +367,7 @@ class Agent2Result:
                     "confidence": p.confidence,
                     "reason": p.reason,
                     "warnings": p.warnings,
+                    "missing_reason": p.missing_reason,
                 }
                 for p in self.final_params
             ],

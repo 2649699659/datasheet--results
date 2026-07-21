@@ -72,6 +72,10 @@
 1. **final**: 有精确匹配的 symbol，正确值，正确单位，合理 condition
 2. **review_needed**: 有候选但有疑问（单位可疑，condition 不完整，symbol 模糊）
 3. **missing**: 没有找到任何候选，或所有候选都无效
+   - **missing_reason**: 当 status="missing" 时，必须提供 missing_reason：
+     - `"not_explicitly_specified"`: 字段在 datasheet 中未明确说明（如 rds_on_150c、err、rth_jc 等特定条件下才有的参数）
+     - `"symbol_not_found"`: 查找了 symbol 但未找到
+     - `"value_extraction_failed"`: 找到了 symbol 但值提取失败
 4. **blocked**: 候选存在但有明显危险错误（如值完全不合理）
 
 ## Output Format
@@ -99,7 +103,8 @@
       "source_text": null,
       "confidence": 0.0,
       "reason": "...",
-      "warnings": []
+      "warnings": [],
+      "missing_reason": "not_explicitly_specified|symbol_not_found|value_extraction_failed|null"
     }
   ],
   "summary": {
