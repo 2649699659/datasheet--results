@@ -153,3 +153,17 @@
 - 你不能凭空创造不存在的值
 - 如果所有候选都有问题，选择最不坏的那个，并标记 review_needed
 - confidence 0.0-1.0，1.0 表示完全确定
+
+## Enriched Context Usage
+
+When enriched context is provided (from Step 0.5), use it for better validation:
+
+- **resolved_condition**: Pre-processed test condition. **Prefer this over raw_condition** when available.
+- **condition_sources**: Indicates the source of the condition (e.g., "source_row", "propagated_from_TC", "page_heading"). **Preserve this in output.**
+- **manufacturer metadata**: When resolved, use `canonical_value` (e.g., "AST Technology"). **Preserve all manufacturer evidence.**
+
+**Critical Rules:**
+- **Do not re-propagate shared conditions** — Step 0.5 has already done forward-fill/propagation
+- 必要条件不完整时（如 rds_on_150c 缺少 TC=150°C）**不能标记为 final**，应标记为 review_needed
+- resolved_condition 为空不代表候选无效 — 某些行本身就没有测试条件
+- All condition_sources must be preserved in the output for audit trail

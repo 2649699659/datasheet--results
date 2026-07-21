@@ -137,6 +137,8 @@ def enrich_payload(
         pdf_path=payload.pdf_path,
         source_backend=payload.source_backend,
         pages=enriched_pages,
+        schema_version="1.0",
+        source_fingerprint=payload.source_fingerprint.to_dict() if payload.source_fingerprint else None,
         enriched_row_count=0,
         row_type_counts={},
         table_titles_detected=[],

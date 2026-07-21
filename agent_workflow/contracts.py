@@ -55,6 +55,43 @@ class CamelotPage:
 
 
 @dataclass
+class SourceFingerprint:
+    """
+    PDF source fingerprint for cache validation.
+    Included in artifacts to detect file changes.
+    """
+    resolved_path: str      # Absolute canonical path
+    file_size: int         # File size in bytes
+    mtime_ns: int          # Modification time in nanoseconds
+
+    def to_dict(self) -> dict:
+        return {
+            "resolved_path": self.resolved_path,
+            "file_size": self.file_size,
+            "mtime_ns": self.mtime_ns,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SourceFingerprint":
+        return cls(
+            resolved_path=d["resolved_path"],
+            file_size=d["file_size"],
+            mtime_ns=d["mtime_ns"],
+        )
+
+    @classmethod
+    def from_path(cls, pdf_path: str) -> "SourceFingerprint":
+        import os
+        abs_path = os.path.abspath(pdf_path)
+        stat = os.stat(abs_path)
+        return cls(
+            resolved_path=abs_path,
+            file_size=stat.st_size,
+            mtime_ns=stat.st_mtime_ns,
+        )
+
+
+@dataclass
 class CamelotPayload:
     """
     Output of Step 0: Camelot table extraction.
@@ -66,9 +103,11 @@ class CamelotPayload:
     pdf_path: str
     pages: list[CamelotPage]
     source_backend: str = "camelot"
+    schema_version: str = "1.0"
+    source_fingerprint: SourceFingerprint | None = None
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "document_id": self.document_id,
             "file_name": self.file_name,
             "pdf_path": self.pdf_path,
@@ -95,7 +134,11 @@ class CamelotPayload:
                 for p in self.pages
             ],
             "source_backend": self.source_backend,
+            "schema_version": self.schema_version,
         }
+        if self.source_fingerprint is not None:
+            result["source_fingerprint"] = self.source_fingerprint.to_dict()
+        return result
 
     @classmethod
     def from_dict(cls, d: dict) -> "CamelotPayload":
@@ -118,12 +161,19 @@ class CamelotPayload:
                     table_bbox=t.get("table_bbox"),
                 ))
             pages.append(CamelotPage(page_number=p["page_number"], tables=tables))
+
+        fingerprint = None
+        if d.get("source_fingerprint"):
+            fingerprint = SourceFingerprint.from_dict(d["source_fingerprint"])
+
         return cls(
             document_id=d["document_id"],
             file_name=d["file_name"],
             pdf_path=d["pdf_path"],
             pages=pages,
             source_backend=d.get("source_backend", "camelot"),
+            schema_version=d.get("schema_version", "1.0"),
+            source_fingerprint=fingerprint,
         )
 
 

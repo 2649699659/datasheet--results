@@ -95,6 +95,21 @@
 4. **条件提取** - 从最后一列或倒数第二列提取条件
 5. **返回 source_cells** - 说明值来自哪些列，便于追溯
 
+## Enriched Context Usage
+
+When enriched context is provided (from Step 0.5), use it to improve classification:
+
+- **resolved_condition**: Pre-processed test condition (e.g., "VGS=18V; ID=150A; TC=25°C"). Prefer this over raw_condition when available.
+- **raw_condition**: Original condition text from the datasheet. Always preserve this.
+- **context_status**: Indicates data quality (e.g., "enriched", "from_source", "propagated"). Use to assess reliability.
+- **quality_flags**: Warnings about data quality (e.g., "ambiguous_symbol", "condition_incomplete").
+
+**Rules:**
+- resolved_condition 为空不代表候选无效 — 有些行本身就没有测试条件
+- ambiguous 候选应保留，但降低 confidence
+- 不要重新进行 forward-fill 或条件传播 — Step 0.5 已完成
+- raw_cells 和 raw_condition 必须保留在输出中
+
 ## 示例
 
 ### 示例 1: VDS

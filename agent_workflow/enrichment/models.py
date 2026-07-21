@@ -206,6 +206,10 @@ class EnrichedPayload:
     source_backend: str
     pages: list[EnrichedPage]
 
+    # Schema version and source fingerprint for cache validation
+    schema_version: str = "1.0"
+    source_fingerprint: dict | None = None  # {resolved_path, file_size, mtime_ns}
+
     # Metadata about the enrichment
     enriched_row_count: int = 0
     row_type_counts: dict[str, int] = field(default_factory=dict)
@@ -228,12 +232,14 @@ class EnrichedPayload:
     document_metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "document_id": self.document_id,
             "file_name": self.file_name,
             "pdf_path": self.pdf_path,
             "source_backend": self.source_backend,
             "pages": [p.to_dict() for p in self.pages],
+            "schema_version": self.schema_version,
+            "source_fingerprint": self.source_fingerprint,
             "enriched_row_count": self.enriched_row_count,
             "row_type_counts": self.row_type_counts,
             "table_titles_detected": self.table_titles_detected,
@@ -248,6 +254,7 @@ class EnrichedPayload:
             "condition_conflicts": self.condition_conflicts,
             "document_metadata": self.document_metadata,
         }
+        return result
 
     @classmethod
     def from_dict(cls, d: dict) -> "EnrichedPayload":
@@ -257,6 +264,8 @@ class EnrichedPayload:
             pdf_path=d["pdf_path"],
             source_backend=d.get("source_backend", "camelot"),
             pages=[EnrichedPage.from_dict(p) for p in d["pages"]],
+            schema_version=d.get("schema_version", "1.0"),
+            source_fingerprint=d.get("source_fingerprint"),
             enriched_row_count=d.get("enriched_row_count", 0),
             row_type_counts=dict(d.get("row_type_counts", {})),
             table_titles_detected=list(d.get("table_titles_detected", [])),

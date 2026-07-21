@@ -12,7 +12,7 @@ import hashlib
 import logging
 from pathlib import Path
 
-from ..contracts import CamelotPayload, CamelotPage, CamelotTable, CamelotTableRow
+from ..contracts import CamelotPayload, CamelotPage, CamelotTable, CamelotTableRow, SourceFingerprint
 from ..artifacts import ArtifactPaths, save_payload
 
 logger = logging.getLogger(__name__)
@@ -176,12 +176,17 @@ def run(pdf_path: str, artifact_paths: ArtifactPaths) -> CamelotPayload:
             table.table_index = idx
         pages_out.append(CamelotPage(page_number=page_num, tables=tables))
 
+    # Compute source fingerprint for cache validation
+    fingerprint = SourceFingerprint.from_path(pdf_path)
+
     payload = CamelotPayload(
         document_id=doc_id,
         file_name=file_name,
         pdf_path=pdf_path,
         pages=pages_out,
         source_backend="camelot",
+        schema_version="1.0",
+        source_fingerprint=fingerprint,
     )
 
     # Save

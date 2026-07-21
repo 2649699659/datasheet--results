@@ -19,6 +19,7 @@ from ..contracts import (
     FieldStatus,
 )
 from ..artifacts import ArtifactPaths, save_agent2, load_agent1
+from ..enrichment.models import EnrichedPayload as EnrichedPayloadModel
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +33,31 @@ def _load_prompt() -> str:
     return ""
 
 
-def _build_llm_input(agent1_result: Agent1Result) -> str:
-    """Build the LLM input from Agent 1 candidates."""
+def _build_llm_input(
+    agent1_result: Agent1Result,
+    enriched_payload: EnrichedPayloadModel | None = None,
+) -> str:
+    """
+    Build the LLM input from Agent 1 candidates.
+
+    When enriched_payload is provided, includes:
+    - resolved_condition per candidate row (from Phase 2A/3A)
+    - condition_sources per candidate row
+    - context_status per candidate row
+    - manufacturer metadata from Phase 3B
+    """
     lines = []
     lines.append(f"# Document: {agent1_result.file_name}\n")
     lines.append(f"# Document ID: {agent1_result.document_id}\n")
+
+    # Add manufacturer metadata if available
+    if enriched_payload is not None and enriched_payload.document_metadata:
+        mfr = enriched_payload.document_metadata.get("manufacturer", {})
+        if mfr:
+            canonical = mfr.get("canonical_value", "N/A")
+            status = mfr.get("status", "unknown")
+            lines.append(f"# Manufacturer: {canonical} (status: {status})\n")
+
     lines.append("\n## Candidate Review Context\n")
     lines.append("Review each field's candidates and determine the correct selection.\n")
     lines.append("Output STRICT JSON:\n")
@@ -73,6 +94,16 @@ def _build_llm_input(agent1_result: Agent1Result) -> str:
 ```""")
 
     lines.append("\n## Field Candidates\n")
+
+    # Build enriched lookup if enriched_payload is available
+    enriched_lookup: dict[tuple[int, int, int], object] = {}
+    if enriched_payload is not None:
+        for page in enriched_payload.pages:
+            for table in page.tables:
+                for row in table.rows:
+                    key = (page.page_number, table.table_index, row.row_index)
+                    enriched_lookup[key] = row
+
     for fc in agent1_result.fields:
         lines.append(f"\n### {fc.field_id} ({fc.label})\n")
         lines.append(f"Target unit: {fc.target_unit}\n")
@@ -85,7 +116,24 @@ def _build_llm_input(agent1_result: Agent1Result) -> str:
             lines.append(f"  cells: {c.row_cells}")
             lines.append(f"  confidence={c.confidence}, match_type={c.match_type}")
             if c.condition:
-                lines.append(f"  condition: {c.condition}")
+                lines.append(f"  raw_condition: {c.condition}")
+
+            # Add enriched context if available
+            if enriched_payload is not None:
+                key = (c.source_page, c.table_index, c.row_index)
+                enriched_row = enriched_lookup.get(key)
+                if enriched_row is not None:
+                    resolved_cond = getattr(enriched_row, 'resolved_condition', None)
+                    if resolved_cond:
+                        lines.append(f"  resolved_condition: {resolved_cond}")
+                    condition_sources = getattr(enriched_row, 'condition_sources', [])
+                    if condition_sources:
+                        lines.append(f"  condition_sources: {condition_sources}")
+                    ctx_status = getattr(enriched_row, 'context_status', None)
+                    if ctx_status:
+                        ctx_val = ctx_status.value if hasattr(ctx_status, 'value') else ctx_status
+                        lines.append(f"  context_status: {ctx_val}")
+
             if c.review_reason:
                 lines.append(f"  review_reason: {c.review_reason}")
 
@@ -188,20 +236,25 @@ def _parse_llm_output(content: str) -> Agent2Result:
     )
 
 
-def run(agent1_result: Agent1Result, artifact_paths: ArtifactPaths) -> Agent2Result:
+def run(
+    agent1_result: Agent1Result,
+    artifact_paths: ArtifactPaths,
+    enriched_payload: EnrichedPayloadModel | None = None,
+) -> Agent2Result:
     """
     Run Step 2: Agent 2 Parameter Validation.
 
     Args:
         agent1_result: Agent1Result from Step 1
         artifact_paths: Artifact paths manager
+        enriched_payload: EnrichedPayload from Step 0.5 (optional)
 
     Returns:
         Agent2Result
     """
     logger.info(f"Step 2: Running Agent 2 validation for {agent1_result.file_name}")
 
-    llm_input = _build_llm_input(agent1_result)
+    llm_input = _build_llm_input(agent1_result, enriched_payload=enriched_payload)
 
     # Save prompt
     prompt_path = artifact_paths.step2_prompt()

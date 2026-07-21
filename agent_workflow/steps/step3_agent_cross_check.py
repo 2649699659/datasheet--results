@@ -22,6 +22,91 @@ from ..artifacts import ArtifactPaths, save_agent3, load_agent2
 
 logger = logging.getLogger(__name__)
 
+# Consistency slot configuration for each field.
+# Defines which value slot(s) to use for cross-parameter consistency checks.
+# Format: "slot_name": "primary" | "secondary" | None
+# A field may have primary (preferred) and secondary (fallback) slots.
+# A value of None means the slot is not applicable for this field.
+CONSISTENCY_SLOTS: dict[str, dict[str, str | None]] = {
+    # voltage_rating: value is the primary (e.g., 1200V rating stored in value)
+    "voltage_rating": {"primary": "value", "secondary": None},
+    # current_rating: value is the primary (e.g., 10A rating stored in value)
+    "current_rating": {"primary": "value", "secondary": None},
+    # isol: min is the primary (e.g., 4.2A minimum current stored in min)
+    "isol": {"primary": "min", "secondary": None},
+    # junction_temperature: max is primary (max operating temp), value is secondary
+    "junction_temperature": {"primary": "max", "secondary": "value"},
+    # vgs_th: min and max are both used (threshold voltage range)
+    "vgs_th": {"primary": "min", "secondary": "max"},
+    # rds_on: typ is primary (typical on-resistance)
+    "rds_on": {"primary": "typ", "secondary": "value"},
+    "rds_on_25c": {"primary": "typ", "secondary": "value"},
+    "rds_on_150c": {"primary": "typ", "secondary": "value"},
+    # capacitance values: typ is primary
+    "ciss": {"primary": "typ", "secondary": None},
+    "coss": {"primary": "typ", "secondary": None},
+    "crss": {"primary": "typ", "secondary": None},
+    # gate charge: typ is primary
+    "qg": {"primary": "typ", "secondary": None},
+    "qgs": {"primary": "typ", "secondary": None},
+    "qgd": {"primary": "typ", "secondary": None},
+    # Reverse recovery time: typ is primary
+    "trr": {"primary": "typ", "secondary": None},
+    "qrr": {"primary": "typ", "secondary": None},
+    "irrm": {"primary": "typ", "secondary": None},
+    # Switching energy: typ is primary
+    "eon": {"primary": "typ", "secondary": None},
+    "eoff": {"primary": "typ", "secondary": None},
+}
+
+
+def resolve_consistency_value(p, field_id: str) -> float | None:
+    """
+    Resolve the consistency-check value for a parameter based on its field_id.
+
+    Uses CONSISTENCY_SLOTS to determine which slot (primary or secondary)
+    to read from. Falls back to secondary if primary is not available.
+
+    Returns None if neither primary nor secondary slot has a value.
+    For fields needing explicit min/max access (vgs_th), use resolve_min/max directly.
+    """
+    if p is None:
+        return None
+
+    slots = CONSISTENCY_SLOTS.get(field_id, {})
+    primary = slots.get("primary")
+    secondary = slots.get("secondary")
+
+    # Try primary first
+    if primary:
+        v = getattr(p, primary, None)
+        if v is not None:
+            return float(v)
+
+    # Try secondary
+    if secondary:
+        v = getattr(p, secondary, None)
+        if v is not None:
+            return float(v)
+
+    return None
+
+
+def resolve_min(p, field_id: str) -> float | None:
+    """Resolve the min slot value for a field."""
+    if p is None:
+        return None
+    v = getattr(p, "min", None)
+    return float(v) if v is not None else None
+
+
+def resolve_max(p, field_id: str) -> float | None:
+    """Resolve the max slot value for a field."""
+    if p is None:
+        return None
+    v = getattr(p, "max", None)
+    return float(v) if v is not None else None
+
 
 def _get_field(params: list, field_id: str):
     return next((p for p in params if p.field_id == field_id), None)
@@ -49,9 +134,9 @@ def nF_to_pF(nF: float) -> float:
     return nF * 1000.0
 
 
-def get_capacitance_in_pF(p) -> float | None:
-    """Get capacitance value normalized to pF."""
-    v = _typ(p)
+def get_capacitance_in_pF(p, field_id: str) -> float | None:
+    """Get capacitance value normalized to pF using unified value access."""
+    v = resolve_consistency_value(p, field_id)
     if v is None:
         return None
     unit = (p.unit or "").strip().lower()
@@ -80,8 +165,9 @@ def check_rds_temperature_coefficient(params: list) -> ConsistencyCheck:
             suggested_action="none",
         )
 
-    v25 = _typ(rds25)
-    v150 = _typ(rds150)
+    # rds_on_25c and rds_on_150c use typ slot per CONSISTENCY_SLOTS
+    v25 = resolve_consistency_value(rds25, "rds_on_25c")
+    v150 = resolve_consistency_value(rds150, "rds_on_150c")
     details["rds_on_25c_typ"] = v25
     details["rds_on_150c_typ"] = v150
 
@@ -145,9 +231,10 @@ def check_gate_charge_hierarchy(params: list) -> ConsistencyCheck:
     qgs = _get_field(params, "qgs")
     qgd = _get_field(params, "qgd")
 
-    qg_v = _typ(qg)
-    qgs_v = _typ(qgs)
-    qgd_v = _typ(qgd)
+    # qg, qgs, qgd use typ slot per CONSISTENCY_SLOTS
+    qg_v = resolve_consistency_value(qg, "qg")
+    qgs_v = resolve_consistency_value(qgs, "qgs")
+    qgd_v = resolve_consistency_value(qgd, "qgd")
 
     details = {"qg_typ": qg_v, "qgs_typ": qgs_v, "qgd_typ": qgd_v}
 
@@ -206,9 +293,10 @@ def check_gate_charge_hierarchy(params: list) -> ConsistencyCheck:
 
 def check_capacitance_hierarchy(params: list) -> ConsistencyCheck:
     """Ciss >> Coss > Crss (in pF)."""
-    ciss_pf = get_capacitance_in_pF(_get_field(params, "ciss"))
-    coss_pf = get_capacitance_in_pF(_get_field(params, "coss"))
-    crss_pf = get_capacitance_in_pF(_get_field(params, "crss"))
+    # ciss, coss, crss use typ slot per CONSISTENCY_SLOTS
+    ciss_pf = get_capacitance_in_pF(_get_field(params, "ciss"), "ciss")
+    coss_pf = get_capacitance_in_pF(_get_field(params, "coss"), "coss")
+    crss_pf = get_capacitance_in_pF(_get_field(params, "crss"), "crss")
 
     details = {"ciss_pF": ciss_pf, "coss_pF": coss_pf, "crss_pF": crss_pf}
 
@@ -253,9 +341,10 @@ def check_capacitance_hierarchy(params: list) -> ConsistencyCheck:
 
 def check_reverse_recovery_consistency(params: list) -> ConsistencyCheck:
     """Qrr ≈ 0.5 * trr(ns) * IRRM(A) * 1e-3 (in μC)."""
-    trr_v = _typ(_get_field(params, "trr"))
-    qrr_v = _typ(_get_field(params, "qrr"))
-    irrm_v = _typ(_get_field(params, "irrm"))
+    # trr, qrr, irrm use typ slot per CONSISTENCY_SLOTS
+    trr_v = resolve_consistency_value(_get_field(params, "trr"), "trr")
+    qrr_v = resolve_consistency_value(_get_field(params, "qrr"), "qrr")
+    irrm_v = resolve_consistency_value(_get_field(params, "irrm"), "irrm")
 
     details = {"trr": trr_v, "qrr": qrr_v, "irrm": irrm_v}
 
@@ -327,8 +416,9 @@ def check_reverse_recovery_consistency(params: list) -> ConsistencyCheck:
 
 def check_switching_energy(params: list) -> ConsistencyCheck:
     """Eon and Eoff should be comparable (within 3.3x)."""
-    eon_v = _typ(_get_field(params, "eon"))
-    eoff_v = _typ(_get_field(params, "eoff"))
+    # eon and eoff use typ slot per CONSISTENCY_SLOTS
+    eon_v = resolve_consistency_value(_get_field(params, "eon"), "eon")
+    eoff_v = resolve_consistency_value(_get_field(params, "eoff"), "eoff")
 
     details = {"eon": eon_v, "eoff": eoff_v}
 
@@ -378,7 +468,8 @@ def check_switching_energy(params: list) -> ConsistencyCheck:
 def check_junction_temperature(params: list) -> ConsistencyCheck:
     """Tj_max should be in reasonable range (150-200°C for SiC)."""
     tj = _get_field(params, "junction_temperature")
-    tj_max = _max_v(tj)
+    # junction_temperature uses max slot per CONSISTENCY_SLOTS
+    tj_max = resolve_consistency_value(tj, "junction_temperature")
 
     details = {"tj_max": tj_max}
 
@@ -425,8 +516,9 @@ def check_junction_temperature(params: list) -> ConsistencyCheck:
 def check_vgsth_range(params: list) -> ConsistencyCheck:
     """VGS(th) should be in reasonable range (1.5V-5.5V for SiC)."""
     vgs = _get_field(params, "vgs_th")
-    vgs_min = _min_v(vgs)
-    vgs_max = _max_v(vgs)
+    # vgs_th uses min and max slots per CONSISTENCY_SLOTS
+    vgs_min = resolve_min(vgs, "vgs_th")
+    vgs_max = resolve_max(vgs, "vgs_th")
 
     details = {"vgs_min": vgs_min, "vgs_max": vgs_max}
 
@@ -485,8 +577,9 @@ def check_isolation_voltage(params: list) -> ConsistencyCheck:
     isol = _get_field(params, "isol")
     vds = _get_field(params, "voltage_rating")
 
-    isol_v = _typ(isol)
-    vds_max = _max_v(vds)
+    # isol uses min slot per CONSISTENCY_SLOTS; voltage_rating uses value slot
+    isol_v = resolve_min(isol, "isol")
+    vds_max = resolve_consistency_value(vds, "voltage_rating")
 
     details = {"isol": isol_v, "vds_max": vds_max}
 

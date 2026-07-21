@@ -26,12 +26,15 @@ logger = logging.getLogger(__name__)
 def run_workflow(
     pdf_path: str,
     output_dir: str,
+    disable_context_enrichment: bool = False,
+    allow_context_enrichment_fallback: bool = False,
 ) -> WorkflowResult:
     """
     Run the full Agent Workflow for a single PDF.
 
     Steps:
         0. Extract tables with Camelot → CamelotPayload
+        0.5. Enrich context (row classification, conditions, manufacturer)
         1. Agent 1: Candidate row selection → Agent1Result
         2. Agent 2: Parameter validation → Agent2Result
         3. Agent 3: Cross-parameter consistency → Agent3Result
@@ -40,6 +43,8 @@ def run_workflow(
     Args:
         pdf_path: Path to input PDF
         output_dir: Output directory for artifacts and Excel
+        disable_context_enrichment: Skip Step 0.5 entirely
+        allow_context_enrichment_fallback: If Step 0.5 fails, continue with raw payload
 
     Returns:
         WorkflowResult with all outputs
@@ -57,6 +62,7 @@ def run_workflow(
 
     errors: list[str] = []
     warnings: list[str] = []
+    enrichment_status = "disabled"
 
     # ── Step 0: Camelot Extraction ──────────────────────────────────────────
     try:
@@ -64,6 +70,9 @@ def run_workflow(
         payload = step0_run(pdf_path, ap)
         if not payload.pages:
             raise RuntimeError("No tables extracted from PDF")
+        table_count = sum(len(p.tables) for p in payload.pages)
+        row_count = sum(len(t.rows) for p in payload.pages for t in p.tables)
+        logger.info(f"Step 0: Camelot extraction — Tables: {table_count}, Rows: {row_count}")
     except Exception as e:
         logger.error(f"Step 0 failed: {e}")
         return WorkflowResult(
@@ -75,10 +84,53 @@ def run_workflow(
             elapsed_seconds=time.time() - start_time,
         )
 
+    # ── Step 0.5: Context Enrichment ───────────────────────────────────────
+    enriched_payload = None
+    if disable_context_enrichment:
+        logger.info("Context enrichment: disabled (--disable-context-enrichment)")
+        enrichment_status = "disabled"
+    else:
+        try:
+            from .steps.step0_5_enrich_context import run as step0_5_run
+            enriched_payload = step0_5_run(payload, ap)
+            enrichment_status = "success"
+            logger.info(
+                f"Step 0.5: Context enrichment — "
+                f"Manufacturer: {enriched_payload.document_metadata.get('manufacturer', {}).get('canonical_value', 'N/A')}, "
+                f"Heading conditions: {enriched_payload.heading_conditions_applied}, "
+                f"Shared propagated: {enriched_payload.shared_conditions_propagated}"
+            )
+        except Exception as e:
+            logger.error(f"Step 0.5 failed: {e}")
+            if allow_context_enrichment_fallback:
+                enrichment_status = "fallback"
+                logger.warning(
+                    f"Context enrichment: failed, falling back to raw Camelot payload "
+                    f"(--allow-context-enrichment-fallback was set)"
+                )
+                warnings.append(f"Step 0.5 failed: {e}, using raw payload")
+            else:
+                enrichment_status = "failed"
+                errors.append(f"Step 0.5 failed: {e} (use --allow-context-enrichment-fallback to ignore)")
+                return WorkflowResult(
+                    pdf_path=pdf_path,
+                    output_xlsx="",
+                    status="failed",
+                    agent1=None, agent2=None, agent3=None,
+                    errors=errors,
+                    warnings=warnings,
+                    elapsed_seconds=time.time() - start_time,
+                )
+
     # ── Step 1: Agent 1 — Candidate Selection ───────────────────────────────
     try:
         from .steps.step1_agent_candidate import run as step1_run
-        agent1 = step1_run(payload, ap)
+        agent1 = step1_run(payload, ap, enriched_payload=enriched_payload)
+        logger.info(
+            f"Step 1: Candidate selection — "
+            f"{agent1.selected_count} selected, {agent1.review_count} review "
+            f"(enrichment: {enrichment_status})"
+        )
     except Exception as e:
         logger.error(f"Step 1 failed: {e}")
         warnings.append(f"Step 1 (Agent 1) failed: {e}")
@@ -89,7 +141,7 @@ def run_workflow(
     if agent1 is not None:
         try:
             from .steps.step2_agent_validator import run as step2_run
-            agent2 = step2_run(agent1, ap)
+            agent2 = step2_run(agent1, ap, enriched_payload=enriched_payload)
         except Exception as e:
             logger.error(f"Step 2 failed: {e}")
             warnings.append(f"Step 2 (Agent 2) failed: {e}")
@@ -144,12 +196,12 @@ def run_workflow(
         logger.warning(f"Could not save workflow result: {e}")
 
     # Print summary
-    _print_summary(result)
+    _print_summary(result, enrichment_status=enrichment_status)
 
     return result
 
 
-def _print_summary(result: WorkflowResult):
+def _print_summary(result: WorkflowResult, enrichment_status: str = "disabled"):
     """Print a concise summary."""
     print()
     print("=" * 60)
@@ -158,6 +210,7 @@ def _print_summary(result: WorkflowResult):
     print(f"  PDF:       {Path(result.pdf_path).name}")
     print(f"  Status:    {result.status.upper()}")
     print(f"  Elapsed:   {result.elapsed_seconds:.1f}s")
+    print(f"  Context enrichment: {enrichment_status}")
     if result.agent1:
         print(f"  Agent 1:  {result.agent1.total_candidates} candidates "
               f"({result.agent1.selected_count} selected, {result.agent1.review_count} review)")
@@ -195,6 +248,16 @@ def parse_args():
     parser.add_argument("--pdf", "-p", required=True, help="Input PDF file path")
     parser.add_argument("--output", "-o", required=True, help="Output directory")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
+    parser.add_argument(
+        "--disable-context-enrichment",
+        action="store_true",
+        help="Skip Step 0.5 context enrichment (use raw Camelot payload)",
+    )
+    parser.add_argument(
+        "--allow-context-enrichment-fallback",
+        action="store_true",
+        help="If Step 0.5 fails, continue with raw Camelot payload instead of aborting",
+    )
     return parser.parse_args()
 
 
@@ -206,7 +269,12 @@ def main():
         format="%(levelname)s: %(message)s",
     )
 
-    result = run_workflow(args.pdf, args.output)
+    result = run_workflow(
+        args.pdf,
+        args.output,
+        disable_context_enrichment=args.disable_context_enrichment,
+        allow_context_enrichment_fallback=args.allow_context_enrichment_fallback,
+    )
 
     if result.status == "failed":
         return 1

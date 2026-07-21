@@ -60,6 +60,10 @@ class ArtifactPaths:
     def step0_5_enriched_payload(self) -> Path:
         return self.artifacts_dir / "step0_5_enriched_payload.json"
 
+    # Step 0.5: Enrichment report
+    def step0_5_report(self) -> Path:
+        return self.artifacts_dir / "step0_5_report.json"
+
     # Step 1: Agent 1 candidates
     def step1_candidates(self) -> Path:
         return self.artifacts_dir / "step1_agent1_candidates.json"
@@ -116,6 +120,22 @@ def load_enriched_payload(path: Path):
     EnrichedPayload = _get_enriched_payload()
     with open(path, encoding="utf-8") as f:
         return EnrichedPayload.from_dict(json.load(f))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Step 0.5: Enrichment Report
+# ─────────────────────────────────────────────────────────────────────────────
+
+def save_step0_5_report(report: dict, path: Path) -> None:
+    """Save Step 0.5 enrichment report as JSON."""
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+
+
+def load_step0_5_report(path: Path) -> dict:
+    """Load Step 0.5 enrichment report from JSON."""
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def save_agent1(result: Agent1Result, path: Path) -> None:

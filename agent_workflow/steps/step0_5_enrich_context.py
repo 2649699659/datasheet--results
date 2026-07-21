@@ -22,7 +22,7 @@ import logging
 from pathlib import Path
 
 from ..contracts import CamelotPayload
-from ..artifacts import ArtifactPaths, load_payload, save_enriched_payload
+from ..artifacts import ArtifactPaths, load_payload, save_enriched_payload, save_step0_5_report
 from ..enrichment import EnrichedPayload, enrich_payload
 
 logger = logging.getLogger(__name__)
@@ -50,11 +50,75 @@ def run(payload: CamelotPayload, artifact_paths: ArtifactPaths) -> EnrichedPaylo
         f"(types: {enriched.row_type_counts})"
     )
 
+    # Build and save enrichment report
+    report = build_enrichment_report(enriched)
+    save_step0_5_report(report, artifact_paths.step0_5_report())
+    logger.info(f"Step 0.5: Saved report to {artifact_paths.step0_5_report()}")
+
     # Save artifact
     save_enriched_payload(enriched, artifact_paths.step0_5_enriched_payload())
     logger.info(f"Step 0.5: Saved to {artifact_paths.step0_5_enriched_payload()}")
 
     return enriched
+
+
+def build_enrichment_report(enriched: EnrichedPayload) -> dict:
+    """
+    Build the Step 0.5 enrichment report from an EnrichedPayload.
+
+    Returns a dict with the following structure:
+    {
+        "status": "success | failed | disabled",
+        "tables_processed": int,
+        "rows_processed": int,
+        "row_type_counts": dict,
+        "heading_conditions_applied": int,
+        "page_headings_applied": int,
+        "shared_conditions_propagated": int,
+        "manufacturer_status": str,
+        "manufacturer_canonical_value": str | None,
+        "manufacturer_evidence_count": int,
+        "ambiguous_rows": list[str],
+        "conflicts": list,
+        "warnings": list[str],
+        "cache_stats": dict,
+    }
+    """
+    # Count page_heading_applied rows
+    page_headings_applied = 0
+    for page in enriched.pages:
+        for table in page.tables:
+            for row in table.rows:
+                if "page_heading_applied" in row.quality_flags:
+                    page_headings_applied += 1
+
+    # Extract manufacturer info
+    manufacturer_status = ""
+    manufacturer_canonical_value = None
+    manufacturer_evidence_count = 0
+    doc_meta = enriched.document_metadata or {}
+    mfr = doc_meta.get("manufacturer", {})
+    if mfr:
+        manufacturer_status = mfr.get("status", "")
+        manufacturer_canonical_value = mfr.get("canonical_value")
+        manufacturer_evidence_count = len(mfr.get("candidates", []))
+
+    return {
+        "status": "success",
+        "tables_processed": sum(len(p.tables) for p in enriched.pages),
+        "rows_processed": enriched.enriched_row_count,
+        "row_type_counts": enriched.row_type_counts,
+        "heading_conditions_applied": enriched.heading_conditions_applied,
+        "page_headings_applied": page_headings_applied,
+        "shared_conditions_propagated": enriched.shared_conditions_propagated,
+        "manufacturer_status": manufacturer_status,
+        "manufacturer_canonical_value": manufacturer_canonical_value,
+        "manufacturer_evidence_count": manufacturer_evidence_count,
+        "ambiguous_rows": enriched.ambiguous_title_rows,
+        "conflicts": [],  # TODO: track conflicts in Phase 3A if needed
+        "warnings": [],
+        "cache_stats": {},
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────

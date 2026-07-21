@@ -22,6 +22,7 @@ from ..contracts import (
     FieldCandidates,
     Agent1Result,
 )
+from ..enrichment.models import EnrichedPayload as EnrichedPayloadModel
 from ..artifacts import ArtifactPaths, save_agent1, load_payload
 
 logger = logging.getLogger(__name__)
@@ -47,11 +48,32 @@ def _load_target_fields() -> list[dict]:
     return []
 
 
-def _build_llm_input(payload: CamelotPayload, target_fields: list[dict]) -> str:
-    """Build the LLM input text from CamelotPayload and target fields."""
+def _build_llm_input(
+    payload: CamelotPayload,
+    target_fields: list[dict],
+    enriched_payload: EnrichedPayloadModel | None = None,
+) -> str:
+    """
+    Build the LLM input text from CamelotPayload and target fields.
+
+    When enriched_payload is provided, includes enriched context per row:
+    - row_type (PARAMETER, TABLE_TITLE, SECTION_TITLE, etc.)
+    - resolved_condition (test condition resolved from heading or shared context)
+    - context_status (UNCHANGED, RESOLVED, AMBIGUOUS)
+    - quality_flags (page_heading_applied, shared_condition_propagated, etc.)
+    """
     lines = []
     lines.append("# INPUT DATA\n")
     lines.append(f"Document: {payload.file_name}\n")
+
+    # Build a lookup from (page_number, table_index, row_index) to enriched row
+    enriched_lookup: dict[tuple[int, int, int], object] = {}
+    if enriched_payload is not None:
+        for page in enriched_payload.pages:
+            for table in page.tables:
+                for row in table.rows:
+                    key = (page.page_number, table.table_index, row.row_index)
+                    enriched_lookup[key] = row
 
     for page in payload.pages:
         for table in page.tables:
@@ -59,7 +81,31 @@ def _build_llm_input(payload: CamelotPayload, target_fields: list[dict]) -> str:
             for row in table.rows:
                 # Escape cells
                 cells = [c.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ") for c in row.cells]
-                lines.append(f"  ROW[{row.row_index}]: {cells}")
+                row_line = f"  ROW[{row.row_index}]: {cells}"
+
+                # Add enriched context if available
+                if enriched_payload is not None:
+                    key = (page.page_number, table.table_index, row.row_index)
+                    enriched_row = enriched_lookup.get(key)
+                    if enriched_row is not None:
+                        # row_type
+                        row_type = getattr(enriched_row, 'row_type', None)
+                        if row_type:
+                            row_line += f"  # type={row_type.value if hasattr(row_type, 'value') else row_type}"
+                        # resolved_condition
+                        resolved_cond = getattr(enriched_row, 'resolved_condition', None)
+                        if resolved_cond:
+                            row_line += f", resolved_condition={resolved_cond}"
+                        # context_status
+                        ctx_status = getattr(enriched_row, 'context_status', None)
+                        if ctx_status:
+                            row_line += f", context_status={ctx_status.value if hasattr(ctx_status, 'value') else ctx_status}"
+                        # quality_flags
+                        quality_flags = getattr(enriched_row, 'quality_flags', [])
+                        if quality_flags:
+                            row_line += f", quality_flags={quality_flags}"
+
+                lines.append(row_line)
 
     lines.append("\n# TARGET FIELDS\n")
     for f in target_fields:
@@ -267,13 +313,18 @@ def _extract_json(content: str) -> str:
     return content.strip()
 
 
-def run(payload: CamelotPayload, artifact_paths: ArtifactPaths) -> Agent1Result:
+def run(
+    payload: CamelotPayload,
+    artifact_paths: ArtifactPaths,
+    enriched_payload: EnrichedPayloadModel | None = None,
+) -> Agent1Result:
     """
     Run Step 1: Agent 1 Candidate Selection.
 
     Args:
         payload: CamelotPayload from Step 0
         artifact_paths: Artifact paths manager
+        enriched_payload: EnrichedPayload from Step 0.5 (optional)
 
     Returns:
         Agent1Result
@@ -281,7 +332,7 @@ def run(payload: CamelotPayload, artifact_paths: ArtifactPaths) -> Agent1Result:
     logger.info(f"Step 1: Running Agent 1 candidate selection for {payload.file_name}")
 
     target_fields = _load_target_fields()
-    llm_input = _build_llm_input(payload, target_fields)
+    llm_input = _build_llm_input(payload, target_fields, enriched_payload=enriched_payload)
 
     # Save prompt
     prompt_path = artifact_paths.step1_prompt("batch")
@@ -297,7 +348,7 @@ def run(payload: CamelotPayload, artifact_paths: ArtifactPaths) -> Agent1Result:
         raise
 
     # Parse output
-    result = _parse_llm_output(content, payload)
+    result = _parse_llm_output(content, payload, enriched_payload=enriched_payload)
 
     # Save result
     save_agent1(result, artifact_paths.step1_candidates())
