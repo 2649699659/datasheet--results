@@ -348,7 +348,7 @@ def run(
         raise
 
     # Parse output
-    result = _parse_llm_output(content, payload, enriched_payload=enriched_payload)
+    result = _parse_llm_output(content, payload)
 
     # Save result
     save_agent1(result, artifact_paths.step1_candidates())

@@ -17,6 +17,11 @@ import time
 from pathlib import Path
 from typing import Literal
 
+from dotenv import load_dotenv
+
+# Load .env file if present
+load_dotenv()
+
 from .contracts import WorkflowResult
 from .artifacts import ArtifactPaths, load_payload, load_agent1, load_agent2, load_agent3, save_workflow_result
 
