@@ -113,7 +113,7 @@ class ManufacturerEvidence:
 class ManufacturerCandidate:
     canonical_name: str
     evidences: list[ManufacturerEvidence] = field(default_factory=list)
-    
+
     def add_evidence(self, evidence: ManufacturerEvidence) -> None:
         self.evidences.append(evidence)
 
@@ -183,28 +183,28 @@ def is_blocked_term(text: str) -> bool:
 
 def is_likely_part_number(text: str) -> bool:
     """Heuristic: if text looks like a part number, it's not a manufacturer.
-    
+
     A text is likely a part number ONLY if:
     - It contains digits AND is short (< 20 chars)
     - OR it's ALL uppercase/letters/digits/hyphens with no spaces and starts with letters+digits
-    
+
     But NOT if it contains URLs (www., http), emails (@), or multiple distinct content types.
     """
     # If text contains URL indicators, it's not just a part number
     if 'www.' in text.lower() or 'http' in text.lower() or '@' in text:
         return False
-    
+
     # Contains digits and is short - likely part number
     if re.search(r'\d', text) and len(text) < 20:
         return True
-    
+
     # All caps with mixed letters and numbers, no spaces, starts with letter+digits - likely PN
     # But NOT if it contains other separators like / or multiple words
-    if (re.match(r'^[A-Z]{2,}\d+[A-Z0-9\-]*$', text) and 
-        len(text) < 25 and 
+    if (re.match(r'^[A-Z]{2,}\d+[A-Z0-9\-]*$', text) and
+        len(text) < 25 and
         ' ' not in text):
         return True
-    
+
     return False
 
 
@@ -235,20 +235,20 @@ def find_manufacturer_in_text(
 ) -> list[ManufacturerEvidence]:
     """
     Find manufacturer evidence in a block of text.
-    
+
     Returns list of evidence found (may be empty).
     """
     evidences = []
     normalized_text = normalize_for_matching(text)
-    
+
     # Skip blocked terms
     if is_blocked_term(text):
         return []
-    
+
     # Skip likely part numbers
     if is_likely_part_number(text):
         return []
-    
+
     # 1. Check exact names (highest priority) - only check exact name keys
     for name_lower, canonical in _EXACT_NAME_LOOKUP.items():
         if name_lower in normalized_text:
@@ -265,7 +265,7 @@ def find_manufacturer_in_text(
                     evidence_text=text.strip(),
                     confidence=Confidence.HIGH.value,
                 ))
-    
+
     # 2. Check domains - only check domain keys
     domains = extract_domains(text)
     for domain in domains:
@@ -280,7 +280,7 @@ def find_manufacturer_in_text(
                 evidence_text=text.strip(),
                 confidence=Confidence.HIGH.value,
             ))
-    
+
     # 3. Check abbreviations (LOW confidence, only if standalone)
     # This is a weak check - only match if the text IS the abbreviation
     for canonical, info in MANUFACTURER_ALIASES.items():
@@ -297,35 +297,53 @@ def find_manufacturer_in_text(
                     evidence_text=text.strip(),
                     confidence=Confidence.LOW.value,
                 ))
-    
+
     return evidences
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Page text cache (避免重复打开 PDF)
+# Cache key includes file path + size + mtime_ns to detect file changes
 # ─────────────────────────────────────────────────────────────────────────────
 
-_page_text_cache: dict[str, dict[int, list[str]]] = {}
+# Cache structure: {cache_key: page_texts}
+# cache_key = (abs_path, file_size, mtime_ns)
+_page_text_cache: dict[tuple[str, int, int], dict[int, list[str]]] = {}
+
+
+def _get_cache_key(pdf_path: str) -> tuple[str, int, int]:
+    """Compute cache key including file metadata for invalidation."""
+    import os
+    abs_path = os.path.abspath(pdf_path)
+    stat = os.stat(abs_path)
+    return (abs_path, stat.st_size, stat.st_mtime_ns)
 
 
 def get_page_texts(pdf_path: str) -> dict[int, list[str]]:
     """
     Get all text from each page of the PDF.
     Uses caching to avoid re-opening the PDF multiple times.
-    
+    Cache key includes file path + size + mtime_ns to detect file changes.
+
     Returns: {page_number: [text_block1, text_block2, ...]}
+    Returns empty dict if file doesn't exist.
     """
-    if pdf_path in _page_text_cache:
-        return _page_text_cache[pdf_path]
-    
+    try:
+        cache_key = _get_cache_key(pdf_path)
+    except (FileNotFoundError, OSError):
+        return {}
+
+    if cache_key in _page_text_cache:
+        return _page_text_cache[cache_key]
+
     # Import here to avoid hard dependency
     try:
         import pdfplumber
     except ImportError:
         return {}
-    
+
     page_texts: dict[int, list[str]] = {}
-    
+
     try:
         with pdfplumber.open(pdf_path) as pdf:
             for page_num, page in enumerate(pdf.pages, start=1):
@@ -335,7 +353,7 @@ def get_page_texts(pdf_path: str) -> dict[int, list[str]]:
                 # Group words by approximate Y position (same line)
                 current_line: list[dict] = []
                 last_top = None
-                
+
                 for w in words:
                     if last_top is None or abs(w["top"] - last_top) < 5:
                         current_line.append(w)
@@ -347,25 +365,25 @@ def get_page_texts(pdf_path: str) -> dict[int, list[str]]:
                             blocks.append(line_text)
                         current_line = [w]
                     last_top = w["top"]
-                
+
                 # Don't forget the last line
                 if current_line:
                     sorted_words = sorted(current_line, key=lambda x: x["x0"])
                     line_text = " ".join(w["text"] for w in sorted_words)
                     blocks.append(line_text)
-                
+
                 page_texts[page_num] = blocks
     except Exception:
         return {}
-    
-    _page_text_cache[pdf_path] = page_texts
+
+    _page_text_cache[cache_key] = page_texts
     return page_texts
 
 
 def clear_page_text_cache() -> None:
-    """Clear the page text cache. Useful for testing."""
+    """Clear the page text cache. Useful for testing and memory management."""
     global _page_text_cache
-    _page_text_cache = {}
+    _page_text_cache.clear()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -379,44 +397,59 @@ class ManufacturerResult:
     candidates: list[ManufacturerCandidate] = field(default_factory=list)
     quality_flags: list[str] = field(default_factory=list)
 
+    # Diagnostic fields for evidence analysis
+    evidence_count: int = 0          # Total raw evidences (including duplicates)
+    unique_evidence_count: int = 0   # Unique evidence items
+    independent_source_types: list[str] = field(default_factory=list)  # Unique source_types
+    pages_found: list[int] = field(default_factory=list)  # Unique pages with evidence
+
     def to_dict(self) -> dict:
         return {
             "status": self.status,
             "canonical_value": self.canonical_value,
             "candidates": [c.to_dict() for c in self.candidates],
             "quality_flags": self.quality_flags,
+            # Diagnostic fields
+            "evidence_count": self.evidence_count,
+            "unique_evidence_count": self.unique_evidence_count,
+            "independent_source_types": self.independent_source_types,
+            "pages_found": sorted(self.pages_found),
         }
 
 
 def extract_manufacturer(pdf_path: str) -> ManufacturerResult:
     """
     Extract manufacturer from document-level text.
-    
+
     Searches in priority order:
     1. Page 1 (first page - most important)
     2. All pages (for domain, disclaimer, etc.)
-    
+
     Returns ManufacturerResult with candidates, status, and canonical_value.
     """
     page_texts = get_page_texts(pdf_path)
-    
+
     if not page_texts:
         return ManufacturerResult(
             status="missing",
             canonical_value=None,
             candidates=[],
             quality_flags=["page_text_extraction_failed"],
+            evidence_count=0,
+            unique_evidence_count=0,
+            independent_source_types=[],
+            pages_found=[],
         )
-    
+
     # Collect all evidences
     all_evidences: list[ManufacturerEvidence] = []
-    
+
     # Search order: page 1 first (most important), then other pages
     page_order = [1] + [p for p in sorted(page_texts.keys()) if p != 1]
-    
+
     for page_num in page_order:
         blocks = page_texts.get(page_num, [])
-        
+
         # Determine source type based on page
         if page_num == 1:
             source_type = "first_page"
@@ -424,19 +457,23 @@ def extract_manufacturer(pdf_path: str) -> ManufacturerResult:
             source_type = "last_page"  # Likely disclaimer
         else:
             source_type = "general"
-        
+
         for block in blocks:
             evidences = find_manufacturer_in_text(block, page_num, source_type)
             all_evidences.extend(evidences)
-    
+
     if not all_evidences:
         return ManufacturerResult(
             status="missing",
             canonical_value=None,
             candidates=[],
             quality_flags=["no_manufacturer_evidence"],
+            evidence_count=0,
+            unique_evidence_count=0,
+            independent_source_types=[],
+            pages_found=[],
         )
-    
+
     # Group evidences by canonical name
     candidate_map: dict[str, ManufacturerCandidate] = {}
     for ev in all_evidences:
@@ -445,27 +482,43 @@ def extract_manufacturer(pdf_path: str) -> ManufacturerResult:
                 canonical_name=ev.canonical_name
             )
         candidate_map[ev.canonical_name].add_evidence(ev)
-    
+
     candidates = list(candidate_map.values())
-    
+
+    # Compute diagnostic statistics
+    evidence_count = len(all_evidences)
+    unique_evidences = []
+    for ev in all_evidences:
+        key = (ev.normalized_value, ev.source_type, ev.page_number)
+        if key not in [ (u.normalized_value, u.source_type, u.page_number) for u in unique_evidences ]:
+            unique_evidences.append(ev)
+    unique_evidence_count = len(unique_evidences)
+    independent_source_types = sorted(set(e.source_type for e in all_evidences))
+    pages_with_evidence = sorted(set(e.page_number for e in all_evidences))
+
     # Determine status
     quality_flags: list[str] = []
-    
-    # Check for high-confidence evidence
-    has_strong_evidence = any(
-        e.confidence == Confidence.HIGH.value for e in all_evidences
+
+    # Check for explicit full company name (exact_name) - HIGHEST priority
+    has_exact_name = any(
+        e.source_type == SourceType.EXACT_NAME.value and e.confidence == Confidence.HIGH.value
+        for e in all_evidences
     )
-    
-    # Check for multiple consistent sources
-    source_types_found = {e.source_type for e in all_evidences}
-    has_multiple_sources = len(source_types_found) >= 2
-    
+
+    # Check for multiple meaningful evidence types (not just same domain repeated)
+    # Count unique (source_type, confidence_level) pairs as different evidence types
+    unique_evidence_types = set()
+    for ev in all_evidences:
+        if ev.confidence == Confidence.HIGH.value:
+            unique_evidence_types.add((ev.source_type, ev.confidence))
+    has_meaningful_multi_source = len(unique_evidence_types) >= 2
+
     # Check for weak evidence only
     has_weak_only = all(
         e.confidence in (Confidence.LOW.value, Confidence.VERY_LOW.value)
         for e in all_evidences
     )
-    
+
     if has_weak_only:
         quality_flags.append("weak_abbreviation_only")
         # Still resolved if we have a canonical name, but mark as weak
@@ -475,8 +528,12 @@ def extract_manufacturer(pdf_path: str) -> ManufacturerResult:
             canonical_value=canonical,
             candidates=candidates,
             quality_flags=quality_flags,
+            evidence_count=evidence_count,
+            unique_evidence_count=unique_evidence_count,
+            independent_source_types=independent_source_types,
+            pages_found=pages_with_evidence,
         )
-    
+
     if len(candidates) > 1:
         # Multiple different manufacturers - ambiguous
         quality_flags.append("multiple_manufacturer_candidates")
@@ -485,19 +542,40 @@ def extract_manufacturer(pdf_path: str) -> ManufacturerResult:
             canonical_value=None,
             candidates=candidates,
             quality_flags=quality_flags,
+            evidence_count=evidence_count,
+            unique_evidence_count=unique_evidence_count,
+            independent_source_types=independent_source_types,
+            pages_found=pages_with_evidence,
         )
-    
-    # Single manufacturer
-    if has_strong_evidence:
-        quality_flags.append("strong_evidence_found")
-    if has_multiple_sources:
-        quality_flags.append("multiple_consistent_sources")
-    
+
+    # Single manufacturer - check resolved conditions
+    # RESOLVED if: has explicit full company name (exact_name) OR multiple meaningful evidence types
+    if has_exact_name:
+        quality_flags.append("explicit_company_name_found")
+    elif has_meaningful_multi_source:
+        quality_flags.append("multiple_meaningful_evidence_types")
+    else:
+        # Not enough evidence to resolve
+        return ManufacturerResult(
+            status="missing",
+            canonical_value=None,
+            candidates=candidates,
+            quality_flags=quality_flags + ["insufficient_evidence"],
+            evidence_count=evidence_count,
+            unique_evidence_count=unique_evidence_count,
+            independent_source_types=independent_source_types,
+            pages_found=pages_with_evidence,
+        )
+
     return ManufacturerResult(
         status="resolved",
         canonical_value=candidates[0].canonical_name,
         candidates=candidates,
         quality_flags=quality_flags,
+        evidence_count=evidence_count,
+        unique_evidence_count=unique_evidence_count,
+        independent_source_types=independent_source_types,
+        pages_found=pages_with_evidence,
     )
 
 

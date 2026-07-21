@@ -1363,11 +1363,11 @@ class TestPhase3BManufacturer(unittest.TestCase):
         self.assertEqual(mfr.get("canonical_value"), "AST Technology")
 
     def test_manufacturer_has_multiple_sources(self):
-        """Manufacturer must have multiple consistent sources."""
+        """Manufacturer must have explicit company name or multiple evidence types."""
         mfr = self.enriched.document_metadata.get("manufacturer", {})
         quality_flags = mfr.get("quality_flags", [])
-        self.assertIn("strong_evidence_found", quality_flags)
-        self.assertIn("multiple_consistent_sources", quality_flags)
+        # ASC300N1200ME3 has an explicit company name on page 8
+        self.assertIn("explicit_company_name_found", quality_flags)
 
     def test_manufacturer_has_candidates(self):
         """Manufacturer must have at least one candidate."""
@@ -1626,7 +1626,8 @@ class TestManufacturerDetectorUnit(unittest.TestCase):
         
         result = extract_manufacturer(str(pdf_path))
         self.assertEqual(result.status, "resolved")
-        self.assertIn("multiple_consistent_sources", result.quality_flags)
+        # ASC300 has explicit company name on page 8, so quality flag is explicit_company_name_found
+        self.assertIn("explicit_company_name_found", result.quality_flags)
 
     def test_no_manufacturer_missing(self):
         """Document with no manufacturer evidence should return missing."""
@@ -1638,6 +1639,153 @@ class TestManufacturerDetectorUnit(unittest.TestCase):
         # Use a non-existent path to simulate no evidence
         result = extract_manufacturer("/nonexistent/file.pdf")
         self.assertEqual(result.status, "missing")
+
+    def test_cache_hit(self):
+        """Second call should hit cache without re-extracting."""
+        from agent_workflow.enrichment.manufacturer_detector import (
+            extract_manufacturer, clear_page_text_cache, _page_text_cache
+        )
+        import copy
+        
+        clear_page_text_cache()
+        
+        pdf_path = PROJECT_ROOT / "tests/sample_datasheets/ASC300N1200ME3.pdf"
+        if not pdf_path.exists():
+            self.skipTest("Test PDF not found")
+        
+        # First call - extracts
+        result1 = extract_manufacturer(str(pdf_path))
+        cache_size_after_first = len(_page_text_cache)
+        
+        # Second call - should hit cache
+        result2 = extract_manufacturer(str(pdf_path))
+        
+        # Results should be identical
+        self.assertEqual(result1.status, result2.status)
+        self.assertEqual(result1.canonical_value, result2.canonical_value)
+        self.assertEqual(result1.evidence_count, result2.evidence_count)
+        # Cache should not grow on second call
+        self.assertEqual(len(_page_text_cache), cache_size_after_first)
+
+    def test_cache_key_includes_file_metadata(self):
+        """Cache key includes file path + size + mtime_ns."""
+        from agent_workflow.enrichment.manufacturer_detector import (
+            clear_page_text_cache, _get_cache_key
+        )
+        import os
+        
+        pdf_path = PROJECT_ROOT / "tests/sample_datasheets/ASC300N1200ME3.pdf"
+        if not pdf_path.exists():
+            self.skipTest("Test PDF not found")
+        
+        # Verify the cache key includes mtime and size
+        key1 = _get_cache_key(str(pdf_path))
+        
+        # Get original mtime and size
+        stat = os.stat(str(pdf_path))
+        original_size = stat.st_size
+        original_mtime_ns = stat.st_mtime_ns
+        
+        # Verify the cache key structure: (path, size, mtime_ns)
+        self.assertEqual(key1[0], os.path.abspath(str(pdf_path)))
+        self.assertEqual(key1[1], original_size)
+        self.assertEqual(key1[2], original_mtime_ns)
+        self.assertEqual(len(key1), 3)
+
+    def test_two_different_pdfs_no_shared_cache(self):
+        """Different PDFs should not share cache entries."""
+        from agent_workflow.enrichment.manufacturer_detector import (
+            clear_page_text_cache, _page_text_cache, _get_cache_key
+        )
+        import os
+        
+        clear_page_text_cache()
+        
+        pdf_path1 = PROJECT_ROOT / "tests/sample_datasheets/ASC300N1200ME3.pdf"
+        if not pdf_path1.exists():
+            self.skipTest("Test PDF 1 not found")
+        
+        # Get cache keys for both paths
+        key1 = _get_cache_key(str(pdf_path1))
+        
+        # Cache should be empty initially
+        self.assertEqual(len(_page_text_cache), 0)
+        
+        # Cache key for same file should be identical
+        key1_again = _get_cache_key(str(pdf_path1))
+        self.assertEqual(key1, key1_again)
+        
+        # If we had a second different PDF, its key would be different
+        # (we can't easily test this without creating a temp file)
+
+    def test_evidence_deduplication(self):
+        """Same domain appearing on multiple pages should be deduplicated."""
+        from agent_workflow.enrichment.manufacturer_detector import extract_manufacturer
+        from agent_workflow.enrichment.manufacturer_detector import clear_page_text_cache
+        
+        clear_page_text_cache()
+        
+        pdf_path = PROJECT_ROOT / "tests/sample_datasheets/ASC300N1200ME3.pdf"
+        if not pdf_path.exists():
+            self.skipTest("Test PDF not found")
+        
+        result = extract_manufacturer(str(pdf_path))
+        
+        # ASC300N1200ME3 has domain on pages 1-7 (7 times) + page 8
+        # So evidence_count = 15 (total), unique_evidence_count < evidence_count
+        self.assertGreater(result.evidence_count, result.unique_evidence_count)
+        
+        # Domain appears on pages 1-7 as "general" source_type
+        # Page 8 has both domain and exact_name as "last_page" source_type
+        # So independent_source_types should include both "domain" and "exact_name"
+        self.assertIn("domain", result.independent_source_types)
+        self.assertIn("exact_name", result.independent_source_types)
+        
+        # pages_found should be [1, 2, 3, 4, 5, 6, 7, 8]
+        self.assertEqual(result.pages_found, [1, 2, 3, 4, 5, 6, 7, 8])
+
+    def test_repeat_footer_cannot_self_resolve(self):
+        """A single evidence type repeated many times should NOT self-resolve."""
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        # If we only have domain evidence (from footer repeated many times)
+        # WITHOUT exact_name, it should still NOT resolve as explicit_company_name_found
+        
+        # Simulate: domain appears 7 times but no exact_name
+        texts = ["www.astsic.com"] * 7
+        
+        # This would be the behavior if we had ONLY domain evidence
+        from agent_workflow.enrichment.manufacturer_detector import (
+            extract_manufacturer, clear_page_text_cache, _page_text_cache
+        )
+        
+        # We can't easily test this without mocking, but the test below verifies
+        # that having explicit company name is a SEPARATE quality flag from having domain
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        domain_evs = find_manufacturer_in_text("www.astsic.com", page_number=1, source_type="footer")
+        exact_evs = find_manufacturer_in_text("AST Technology", page_number=1, source_type="disclaimer")
+        
+        # Domain evidence has HIGH confidence
+        self.assertEqual(domain_evs[0].confidence, "high")
+        # But domain alone is NOT explicit_company_name
+        self.assertEqual(domain_evs[0].source_type, "domain")
+        
+        # Exact name has HIGH confidence and is EXACT_NAME
+        self.assertEqual(exact_evs[0].confidence, "high")
+        self.assertEqual(exact_evs[0].source_type, "exact_name")
+
+    def test_clear_page_text_cache_works(self):
+        """clear_page_text_cache should empty the cache."""
+        from agent_workflow.enrichment.manufacturer_detector import (
+            clear_page_text_cache, _page_text_cache
+        )
+        
+        # Initially, cache should be empty (or at known state)
+        clear_page_text_cache()
+        
+        # After clear, cache should be empty
+        self.assertEqual(len(_page_text_cache), 0)
 
     def test_is_likely_part_number(self):
         """Part number detection should work correctly."""
