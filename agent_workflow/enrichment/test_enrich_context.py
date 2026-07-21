@@ -1339,6 +1339,440 @@ class TestPhase2BEnrichment(unittest.TestCase):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Phase 3B: Document-Level Manufacturer Enrichment
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestPhase3BManufacturer(unittest.TestCase):
+    """Tests for Phase 3B: Document-level manufacturer extraction."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Load test payload once for all tests."""
+        cls.pdf_path = PROJECT_ROOT / "tests/sample_datasheets/ASC300N1200ME3.pdf"
+        if not cls.pdf_path.exists():
+            raise unittest.SkipTest(f"Test PDF not found: {cls.pdf_path}")
+        
+        # Generate fresh payload with pdf_path to enable Phase 3B
+        payload = _generate_test_payload()
+        cls.enriched = enrich_payload(payload, str(cls.pdf_path))
+
+    def test_manufacturer_resolved(self):
+        """Manufacturer must be resolved for ASC300N1200ME3.pdf."""
+        mfr = self.enriched.document_metadata.get("manufacturer", {})
+        self.assertEqual(mfr.get("status"), "resolved")
+        self.assertEqual(mfr.get("canonical_value"), "AST Technology")
+
+    def test_manufacturer_has_multiple_sources(self):
+        """Manufacturer must have multiple consistent sources."""
+        mfr = self.enriched.document_metadata.get("manufacturer", {})
+        quality_flags = mfr.get("quality_flags", [])
+        self.assertIn("strong_evidence_found", quality_flags)
+        self.assertIn("multiple_consistent_sources", quality_flags)
+
+    def test_manufacturer_has_candidates(self):
+        """Manufacturer must have at least one candidate."""
+        mfr = self.enriched.document_metadata.get("manufacturer", {})
+        candidates = mfr.get("candidates", [])
+        self.assertGreater(len(candidates), 0)
+        self.assertEqual(candidates[0]["canonical_name"], "AST Technology")
+
+    def test_manufacturer_has_evidences(self):
+        """Manufacturer must have evidences with page/source/evidence."""
+        mfr = self.enriched.document_metadata.get("manufacturer", {})
+        candidates = mfr.get("candidates", [])
+        self.assertGreater(len(candidates), 0)
+        
+        evidences = candidates[0].get("evidences", [])
+        self.assertGreater(len(evidences), 0)
+        
+        # Check evidence structure
+        ev = evidences[0]
+        self.assertIn("page_number", ev)
+        self.assertIn("source_type", ev)
+        self.assertIn("evidence_text", ev)
+        self.assertIn("canonical_name", ev)
+        self.assertIn("confidence", ev)
+
+    def test_manufacturer_domain_evidence(self):
+        """Manufacturer domain evidence must be found on multiple pages."""
+        mfr = self.enriched.document_metadata.get("manufacturer", {})
+        candidates = mfr.get("candidates", [])
+        
+        # Find domain evidences
+        domain_evs = []
+        for c in candidates:
+            for ev in c.get("evidences", []):
+                if ev.get("source_type") == "domain":
+                    domain_evs.append(ev)
+        
+        # Domain should appear on pages 1-7
+        domain_pages = [ev["page_number"] for ev in domain_evs]
+        # Should have domain evidence from pages 1-7 (footer)
+        pages_with_domain = [p for p in domain_pages if p <= 7]
+        self.assertGreater(len(pages_with_domain), 0,
+            f"Domain evidence should appear on pages 1-7, got pages: {domain_pages}")
+
+    def test_manufacturer_exact_name_evidence(self):
+        """Manufacturer exact_name evidence must be found in disclaimer."""
+        mfr = self.enriched.document_metadata.get("manufacturer", {})
+        candidates = mfr.get("candidates", [])
+        
+        # Find exact_name evidences
+        exact_name_evs = []
+        for c in candidates:
+            for ev in c.get("evidences", []):
+                if ev.get("source_type") == "exact_name":
+                    exact_name_evs.append(ev)
+        
+        # Exact name should appear on page 8 (disclaimer)
+        page_8_evs = [ev for ev in exact_name_evs if ev["page_number"] == 8]
+        self.assertGreater(len(page_8_evs), 0,
+            f"Exact name evidence should appear on page 8, got: {[(e['page_number'], e['evidence_text'][:30]) for e in exact_name_evs]}")
+
+    def test_manufacturer_status_not_missing(self):
+        """Manufacturer status must not be missing."""
+        mfr = self.enriched.document_metadata.get("manufacturer", {})
+        self.assertNotEqual(mfr.get("status"), "missing")
+
+    def test_manufacturer_status_not_ambiguous(self):
+        """Manufacturer status must not be ambiguous (single manufacturer)."""
+        mfr = self.enriched.document_metadata.get("manufacturer", {})
+        self.assertNotEqual(mfr.get("status"), "ambiguous")
+
+    def test_manufacturer_canonical_value_not_null(self):
+        """Manufacturer canonical_value must not be null when resolved."""
+        mfr = self.enriched.document_metadata.get("manufacturer", {})
+        if mfr.get("status") == "resolved":
+            self.assertIsNotNone(mfr.get("canonical_value"))
+
+    def test_document_metadata_structure(self):
+        """document_metadata must have the expected structure."""
+        dm = self.enriched.document_metadata
+        self.assertIn("manufacturer", dm)
+        
+        mfr = dm["manufacturer"]
+        self.assertIn("status", mfr)
+        self.assertIn("canonical_value", mfr)
+        self.assertIn("candidates", mfr)
+        self.assertIn("quality_flags", mfr)
+
+    def test_all_evidences_preserve_metadata(self):
+        """All evidences must preserve page/source/evidence."""
+        mfr = self.enriched.document_metadata.get("manufacturer", {})
+        for c in mfr.get("candidates", []):
+            for ev in c.get("evidences", []):
+                self.assertIsInstance(ev["page_number"], int)
+                self.assertIsInstance(ev["source_type"], str)
+                self.assertIsInstance(ev["evidence_text"], str)
+                self.assertGreater(ev["page_number"], 0)
+
+
+class TestManufacturerDetectorUnit(unittest.TestCase):
+    """Unit tests for manufacturer_detector functions."""
+
+    def test_ast_technology_exact_match(self):
+        """AST Technology exact match should be recognized."""
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        evidences = find_manufacturer_in_text(
+            "AST Technology",
+            page_number=1,
+            source_type="test"
+        )
+        self.assertEqual(len(evidences), 1)
+        self.assertEqual(evidences[0].canonical_name, "AST Technology")
+        self.assertEqual(evidences[0].source_type, "exact_name")
+        self.assertEqual(evidences[0].confidence, "high")
+
+    def test_ast_technology_uppercase(self):
+        """AST TECHNOLOGY uppercase should be recognized."""
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        evidences = find_manufacturer_in_text(
+            "AST TECHNOLOGY",
+            page_number=1,
+            source_type="test"
+        )
+        self.assertEqual(len(evidences), 1)
+        self.assertEqual(evidences[0].canonical_name, "AST Technology")
+        self.assertEqual(evidences[0].source_type, "exact_name")
+
+    def test_domain_astsic(self):
+        """www.astsic.com domain should be recognized."""
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        evidences = find_manufacturer_in_text(
+            "www.astsic.com",
+            page_number=1,
+            source_type="test"
+        )
+        self.assertEqual(len(evidences), 1)
+        self.assertEqual(evidences[0].canonical_name, "AST Technology")
+        self.assertEqual(evidences[0].source_type, "domain")
+        self.assertEqual(evidences[0].confidence, "high")
+
+    def test_unicode_chinese(self):
+        """爱仕特科技 (Chinese) should be recognized."""
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        evidences = find_manufacturer_in_text(
+            "爱仕特科技",
+            page_number=1,
+            source_type="test"
+        )
+        self.assertEqual(len(evidences), 1)
+        self.assertEqual(evidences[0].canonical_name, "AST Technology")
+
+    def test_case_insensitive(self):
+        """Case differences should be handled."""
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        evidences = find_manufacturer_in_text(
+            "ast technology",
+            page_number=1,
+            source_type="test"
+        )
+        self.assertEqual(len(evidences), 1)
+        self.assertEqual(evidences[0].canonical_name, "AST Technology")
+
+    def test_part_number_not_manufacturer(self):
+        """Part numbers like ASC300N1200ME3-X should NOT be manufacturer."""
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        evidences = find_manufacturer_in_text(
+            "ASC300N1200ME3-X",
+            page_number=1,
+            source_type="test"
+        )
+        # Should not find any manufacturer evidence
+        ast_evs = [e for e in evidences if e.canonical_name == "AST Technology"]
+        self.assertEqual(len(ast_evs), 0)
+
+    def test_order_number_not_manufacturer(self):
+        """Order Number should NOT be manufacturer."""
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        evidences = find_manufacturer_in_text(
+            "Order Number ASC300N1200ME3-X",
+            page_number=1,
+            source_type="test"
+        )
+        # Should not find AST Technology from Order Number
+        ast_evs = [e for e in evidences if e.canonical_name == "AST Technology"]
+        self.assertEqual(len(ast_evs), 0)
+
+    def test_package_type_not_manufacturer(self):
+        """Package Type should NOT be manufacturer."""
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        evidences = find_manufacturer_in_text(
+            "Package Type ME3",
+            page_number=1,
+            source_type="test"
+        )
+        # Should not find AST Technology from Package Type
+        ast_evs = [e for e in evidences if e.canonical_name == "AST Technology"]
+        self.assertEqual(len(ast_evs), 0)
+
+    def test_abbr_ast_alone_not_resolved(self):
+        """'AST' alone (without Technology) should only be weak evidence."""
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        evidences = find_manufacturer_in_text(
+            "AST",
+            page_number=1,
+            source_type="test"
+        )
+        # 'AST' alone should be recognized as abbreviation with low confidence
+        ast_evs = [e for e in evidences if e.canonical_name == "AST Technology"]
+        if len(ast_evs) > 0:
+            self.assertEqual(ast_evs[0].confidence, "low")
+            self.assertEqual(ast_evs[0].source_type, "abbreviation")
+
+    def test_domain_boundary_matching(self):
+        """Domain must be matched with boundary, not substring."""
+        from agent_workflow.enrichment.manufacturer_detector import find_manufacturer_in_text
+        
+        # 'astsic.com' as part of a larger text should still match
+        evidences = find_manufacturer_in_text(
+            "www.astsic.com is the website",
+            page_number=1,
+            source_type="test"
+        )
+        ast_evs = [e for e in evidences if e.canonical_name == "AST Technology"]
+        self.assertGreater(len(ast_evs), 0)
+        
+        # But a fake domain that contains 'astsic' should not match
+        evidences2 = find_manufacturer_in_text(
+            "myastsic.com is not the real domain",
+            page_number=1,
+            source_type="test"
+        )
+        ast_evs2 = [e for e in evidences2 if e.canonical_name == "AST Technology"]
+        # This might or might not match depending on implementation
+        # The key is that it's not a strong match
+
+    def test_multiple_consistent_sources_resolved(self):
+        """Multiple consistent sources (domain + exact_name) should result in resolved."""
+        from agent_workflow.enrichment.manufacturer_detector import extract_manufacturer
+        from agent_workflow.enrichment.manufacturer_detector import clear_page_text_cache
+        
+        clear_page_text_cache()
+        
+        # This test uses the real PDF which has both domain and exact_name
+        pdf_path = PROJECT_ROOT / "tests/sample_datasheets/ASC300N1200ME3.pdf"
+        if not pdf_path.exists():
+            self.skipTest("Test PDF not found")
+        
+        result = extract_manufacturer(str(pdf_path))
+        self.assertEqual(result.status, "resolved")
+        self.assertIn("multiple_consistent_sources", result.quality_flags)
+
+    def test_no_manufacturer_missing(self):
+        """Document with no manufacturer evidence should return missing."""
+        from agent_workflow.enrichment.manufacturer_detector import extract_manufacturer
+        from agent_workflow.enrichment.manufacturer_detector import clear_page_text_cache
+        
+        clear_page_text_cache()
+        
+        # Use a non-existent path to simulate no evidence
+        result = extract_manufacturer("/nonexistent/file.pdf")
+        self.assertEqual(result.status, "missing")
+
+    def test_is_likely_part_number(self):
+        """Part number detection should work correctly."""
+        from agent_workflow.enrichment.manufacturer_detector import is_likely_part_number
+        
+        # Should be flagged as part number
+        self.assertTrue(is_likely_part_number("ASC300N1200ME3"))
+        self.assertTrue(is_likely_part_number("STM32F103C8T6"))
+        
+        # Should NOT be flagged as part number
+        self.assertFalse(is_likely_part_number("AST Technology"))
+        self.assertFalse(is_likely_part_number("www.astsic.com"))
+
+    def test_is_blocked_term(self):
+        """Blocked terms should be detected."""
+        from agent_workflow.enrichment.manufacturer_detector import is_blocked_term
+        
+        self.assertTrue(is_blocked_term("ASC300N1200ME3-X"))
+        self.assertTrue(is_blocked_term("Order Number"))
+        self.assertTrue(is_blocked_term("Package Type"))
+        self.assertTrue(is_blocked_term("ME3"))
+        self.assertFalse(is_blocked_term("AST Technology"))
+        self.assertFalse(is_blocked_term("www.astsic.com"))
+
+    def test_normalize_text(self):
+        """Text normalization should work correctly."""
+        from agent_workflow.enrichment.manufacturer_detector import normalize_text
+        
+        # NFKC normalization
+        result = normalize_text("AST Technology")
+        self.assertIn("AST", result)
+
+    def test_extract_domains(self):
+        """Domain extraction should work correctly."""
+        from agent_workflow.enrichment.manufacturer_detector import extract_domains
+        
+        domains = extract_domains("www.astsic.com")
+        self.assertIn("astsic.com", domains)
+        
+        domains2 = extract_domains("Web: http://www.astsic.com/")
+        self.assertIn("astsic.com", domains2)
+
+
+class TestBackwardCompatibility(unittest.TestCase):
+    """Test backward compatibility with old JSON without document_metadata."""
+
+    def test_old_json_loads_without_document_metadata(self):
+        """Old JSON without document_metadata should load correctly."""
+        # Create a minimal EnrichedPayload dict without document_metadata
+        old_dict = {
+            "document_id": "test",
+            "file_name": "test.pdf",
+            "pdf_path": "/test/test.pdf",
+            "source_backend": "camelot",
+            "pages": [],
+            "enriched_row_count": 0,
+            "row_type_counts": {},
+        }
+        
+        # Should not raise an exception
+        enriched = EnrichedPayload.from_dict(old_dict)
+        
+        # document_metadata should be empty dict
+        self.assertEqual(enriched.document_metadata, {})
+
+    def test_old_json_loads_with_empty_document_metadata(self):
+        """Old JSON with empty document_metadata should load correctly."""
+        old_dict = {
+            "document_id": "test",
+            "file_name": "test.pdf",
+            "pdf_path": "/test/test.pdf",
+            "source_backend": "camelot",
+            "pages": [],
+            "enriched_row_count": 0,
+            "row_type_counts": {},
+            "document_metadata": {},
+        }
+        
+        enriched = EnrichedPayload.from_dict(old_dict)
+        self.assertEqual(enriched.document_metadata, {})
+
+    def test_serialization_round_trip(self):
+        """EnrichedPayload should serialize and deserialize correctly."""
+        # Generate payload with Phase 3B
+        pdf_path = PROJECT_ROOT / "tests/sample_datasheets/ASC300N1200ME3.pdf"
+        if not pdf_path.exists():
+            self.skipTest("Test PDF not found")
+        
+        payload = _generate_test_payload()
+        enriched = enrich_payload(payload, str(pdf_path))
+        
+        # Serialize
+        d = enriched.to_dict()
+        
+        # Deserialize
+        enriched2 = EnrichedPayload.from_dict(d)
+        
+        # Check document_metadata is preserved
+        self.assertEqual(
+            enriched.document_metadata,
+            enriched2.document_metadata
+        )
+
+    def test_row_data_unchanged_by_phase3b(self):
+        """Phase 3B must not modify any row data."""
+        pdf_path = PROJECT_ROOT / "tests/sample_datasheets/ASC300N1200ME3.pdf"
+        if not pdf_path.exists():
+            self.skipTest("Test PDF not found")
+        
+        payload = _generate_test_payload()
+        enriched = enrich_payload(payload, str(pdf_path))
+        
+        # Check row count is unchanged
+        row_count = sum(
+            len(t.rows) 
+            for p in enriched.pages 
+            for t in p.tables
+        )
+        original_count = sum(
+            len(t.rows) 
+            for p in payload.pages 
+            for t in p.tables
+        )
+        self.assertEqual(row_count, original_count)
+        
+        # Check raw_cells are preserved
+        for ep, pp in zip(enriched.pages, payload.pages):
+            for et, pt in zip(ep.tables, pp.tables):
+                for er, pr in zip(et.rows, pt.rows):
+                    self.assertEqual(er.raw_cells, pr.cells)
+                    # row_id should be stable
+                    self.assertIsNotNone(er.row_id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 

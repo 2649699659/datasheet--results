@@ -36,6 +36,7 @@ from .shared_condition_propagator import (
     propagate_shared_conditions,
     apply_propagation_to_source,
 )
+from .manufacturer_detector import extract_manufacturer
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -157,6 +158,15 @@ def enrich_payload(
     # Propagates shared test conditions to contiguous PARAMETER rows
     # within the same table and section. Does NOT require pdf_path.
     apply_shared_condition_propagation(enriched_payload)
+
+    # ── Phase 3B: Document-level manufacturer extraction ───────────────────
+    # Extracts manufacturer from document-level text (page text, not table rows).
+    # Does NOT modify any row data. Requires pdf_path.
+    if pdf_path is not None:
+        manufacturer_result = extract_manufacturer(pdf_path)
+        enriched_payload.document_metadata = {
+            "manufacturer": manufacturer_result.to_dict()
+        }
 
     enriched_payload._recompute_stats()
 

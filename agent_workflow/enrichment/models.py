@@ -224,6 +224,9 @@ class EnrichedPayload:
     ambiguous_shared_groups: int = 0
     condition_conflicts: int = 0
 
+    # Phase 3B: Document-level metadata (manufacturer, etc.)
+    document_metadata: dict = field(default_factory=dict)
+
     def to_dict(self) -> dict:
         return {
             "document_id": self.document_id,
@@ -243,6 +246,7 @@ class EnrichedPayload:
             "shared_conditions_propagated": self.shared_conditions_propagated,
             "ambiguous_shared_groups": self.ambiguous_shared_groups,
             "condition_conflicts": self.condition_conflicts,
+            "document_metadata": self.document_metadata,
         }
 
     @classmethod
@@ -265,6 +269,7 @@ class EnrichedPayload:
             shared_conditions_propagated=d.get("shared_conditions_propagated", 0),
             ambiguous_shared_groups=d.get("ambiguous_shared_groups", 0),
             condition_conflicts=d.get("condition_conflicts", 0),
+            document_metadata=dict(d.get("document_metadata", {})),
         )
 
     def _recompute_stats(self) -> None:
