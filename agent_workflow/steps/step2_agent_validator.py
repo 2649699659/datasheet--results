@@ -11,6 +11,8 @@ Output: Agent2Result (validated final params)
 import json
 import logging
 from pathlib import Path
+from typing import Optional
+import yaml
 
 from ..contracts import (
     Agent1Result,
@@ -239,6 +241,59 @@ def _parse_llm_output(content: str) -> Agent2Result:
     )
 
 
+# Cache for target field IDs loaded from YAML
+_TARGET_FIELD_IDS: Optional[list[str]] = None
+
+
+def _get_target_field_ids() -> list[str]:
+    """Load target field IDs from target_fields.yaml."""
+    global _TARGET_FIELD_IDS
+    if _TARGET_FIELD_IDS is None:
+        config_path = Path(__file__).parent.parent.parent / "config" / "target_fields.yaml"
+        if config_path.exists():
+            with open(config_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+                _TARGET_FIELD_IDS = [field["id"] for field in data.get("fields", [])]
+        else:
+            _TARGET_FIELD_IDS = []
+    return _TARGET_FIELD_IDS
+
+
+def _ensure_all_fields_present(params: list[Agent2Param]) -> list[Agent2Param]:
+    """
+    Ensure all 30 target fields are present in the output.
+    If any fields are missing, add them with status=missing.
+    """
+    target_ids = set(_get_target_field_ids())
+    present_ids = {p.field_id for p in params}
+    
+    missing_ids = target_ids - present_ids
+    
+    if missing_ids:
+        logger.warning(f"Agent2 omitted {len(missing_ids)} fields: {sorted(missing_ids)}")
+        for field_id in sorted(missing_ids):
+            params.append(Agent2Param(
+                field_id=field_id,
+                status=FieldStatus.MISSING,
+                value=None,
+                min=None,
+                typ=None,
+                max=None,
+                unit=None,
+                condition=None,
+                source_page=None,
+                table_index=None,
+                row_index=None,
+                source_text=None,
+                confidence=0.0,
+                reason="Field not present in Agent2 output",
+                warnings=["Auto-filled by schema validation"],
+                missing_reason="not_explicitly_specified",
+            ))
+    
+    return params
+
+
 def run(
     agent1_result: Agent1Result,
     artifact_paths: ArtifactPaths,
@@ -275,6 +330,10 @@ def run(
     # Parse output
     result = _parse_llm_output(content)
 
+    # Step 4: Ensure all 30 target fields are present in output
+    # If Agent2 omitted any fields, auto-fill with status=missing
+    result.final_params = _ensure_all_fields_present(result.final_params)
+
     # Set manufacturer from Phase 3B metadata (enriched_payload)
     if enriched_payload and enriched_payload.document_metadata:
         mfr_meta = enriched_payload.document_metadata.get("manufacturer", {})
@@ -295,6 +354,14 @@ def run(
     for p in result.final_params:
         if p.status == FieldStatus.MISSING and p.missing_reason is None:
             p.missing_reason = "not_explicitly_specified"
+
+    # Recalculate summary after adding missing fields
+    result.summary = {
+        "final_count": sum(1 for p in result.final_params if p.status == FieldStatus.FINAL),
+        "review_needed_count": sum(1 for p in result.final_params if p.status == FieldStatus.REVIEW_NEEDED),
+        "missing_count": sum(1 for p in result.final_params if p.status == FieldStatus.MISSING),
+        "blocked_count": sum(1 for p in result.final_params if p.status == FieldStatus.BLOCKED),
+    }
 
     # Save result
     save_agent2(result, artifact_paths.step2_final_params())
