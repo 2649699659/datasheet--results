@@ -20,9 +20,12 @@ class ChangeType(str, Enum):
     MISSING_FIELD_MATERIALIZED = "missing_field_materialized"
     CONDITION_RESTORED = "condition_restored"
     CONDITION_CONFLICT = "condition_conflict"
+    UPSTREAM_CONDITION_INCOMPLETE = "upstream_condition_incomplete"
     SOURCE_SLOT_RESTORED = "source_slot_restored"
+    FALSE_SLOT_CORRECTION_PREVENTED = "false_slot_correction_prevented"
     SEMANTIC_VALUE_REJECTED = "semantic_value_rejected"
     SEMANTIC_CANDIDATE_REPLACED = "semantic_candidate_replaced"
+    VALID_MISSING_SAFETY_CHECK = "valid_missing_safety_check"
     UNCHANGED = "unchanged"
 
 
@@ -36,15 +39,24 @@ class RiskLevel(str, Enum):
 @dataclass
 class SourceValueSlots:
     """
-    Preserves the original source column slots (Min/Typ/Max) from the PDF table.
+    Preserves the original source column slots (Min/Typ/Max/Value) from the PDF table.
     
     This ensures we don't lose the original column positions when Agent 2
     re-expresses values in different slots.
+    
+    Attributes:
+        value: For "Values" table (single value column)
+        min: For Min/Typ/Max tables
+        typ: For Min/Typ/Max tables
+        max: For Min/Typ/Max tables
+        schema_type: "values" | "min_typ_max" | "unknown"
+        slot_evidence: Evidence for the slot assignment
     """
     value: float | None = None
     min: float | None = None
     typ: float | None = None
     max: float | None = None
+    schema_type: str | None = None  # "values" | "min_typ_max" | "unknown"
     slot_evidence: dict[str, Any] = field(default_factory=dict)
     
     def has_any_value(self) -> bool:
@@ -56,6 +68,7 @@ class SourceValueSlots:
             "min": self.min,
             "typ": self.typ,
             "max": self.max,
+            "schema_type": self.schema_type,
             "slot_evidence": self.slot_evidence,
         }
 

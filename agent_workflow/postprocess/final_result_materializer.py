@@ -125,6 +125,18 @@ class ShadowFinalizer:
                     key = (page_number, table_index, row_index)
                     self.enriched_row_lookup[key] = row
         
+        # Build table header lookup: (page_number, table_index) -> header_cells
+        self.table_header_lookup = {}
+        for page in self.enriched_payload.get("pages", []):
+            page_number = page.get("page_number")
+            for table in page.get("tables", []):
+                table_index = table.get("table_index")
+                rows = table.get("rows", [])
+                if rows:
+                    # First row is typically the header - use raw_cells field
+                    header_cells = rows[0].get("raw_cells", [])
+                    self.table_header_lookup[(page_number, table_index)] = header_cells
+        
         # Section titles detected (per-row, corresponds to enriched rows)
         self.section_titles = self.enriched_payload.get("section_titles_detected", [])
         
@@ -132,21 +144,84 @@ class ShadowFinalizer:
         """Get the configuration for a target field."""
         return self.target_fields.get(field_id)
     
+    def _get_table_header(self, page_number: int, table_index: int) -> list[str]:
+        """Get table header cells for a given page and table."""
+        return self.table_header_lookup.get((page_number, table_index), [])
+    
+    def _detect_table_schema(self, table_header: list[str]) -> dict:
+        """
+        Detect table schema from header cells.
+        
+        Returns:
+            dict with keys:
+            - type: "values" | "min_typ_max" | "unknown"
+            - column_roles: dict mapping position -> role name
+        """
+        if not table_header:
+            return {"type": "unknown", "column_roles": {}}
+        
+        # Normalize header cells to lowercase
+        header_lower = [h.lower().strip() for h in table_header]
+        
+        # Check for "Values" table (single value column)
+        # Pattern: Symbol | Parameter | Values | '' | '' | Unit | Test Conditions
+        has_values = any('values' in h for h in header_lower)
+        has_min_typ_max = any('min' in h or 'typ' in h or 'max' in h for h in header_lower)
+        
+        if has_values and not has_min_typ_max:
+            # "Values" table - single value column
+            column_roles = {}
+            for i, h in enumerate(header_lower):
+                if 'symbol' in h:
+                    column_roles[i] = 'symbol'
+                elif 'parameter' in h or 'param' in h:
+                    column_roles[i] = 'parameter'
+                elif 'values' in h:
+                    column_roles[i] = 'value'  # Single value column
+                elif 'unit' in h:
+                    column_roles[i] = 'unit'
+                elif 'test' in h or 'condition' in h:
+                    column_roles[i] = 'condition'
+            return {"type": "values", "column_roles": column_roles}
+        
+        if has_min_typ_max:
+            # Min/Typ/Max table
+            column_roles = {}
+            for i, h in enumerate(header_lower):
+                if 'symbol' in h:
+                    column_roles[i] = 'symbol'
+                elif 'parameter' in h or 'param' in h:
+                    column_roles[i] = 'parameter'
+                elif 'min' in h:
+                    column_roles[i] = 'min'
+                elif 'typ' in h:
+                    column_roles[i] = 'typ'
+                elif 'max' in h:
+                    column_roles[i] = 'max'
+                elif 'unit' in h:
+                    column_roles[i] = 'unit'
+                elif 'test' in h or 'condition' in h:
+                    column_roles[i] = 'condition'
+            return {"type": "min_typ_max", "column_roles": column_roles}
+        
+        return {"type": "unknown", "column_roles": {}}
+    
     def _extract_source_slots_from_row_cells(
         self,
         row_cells: list[str],
         field_config: dict | None = None,
+        table_header: list[str] | None = None,
     ) -> SourceValueSlots | None:
         """
-        Extract Min/Typ/Max slots from row_cells based on column positions.
+        Extract Min/Typ/Max/Value slots from row_cells based on table header.
         
-        The PDF table typically has columns like:
-        | Symbol | Parameter | Min | Typ | Max | Unit | Condition |
+        For "Values" tables (Symbol | Parameter | Values | '' | '' | Unit | Test Conditions):
+        - Position 2 = value (single value column, NOT min)
         
-        For most parameters:
-        - Position 2 = Min (if numeric)
-        - Position 3 = Typ (if numeric)
-        - Position 4 = Max (if numeric)
+        For Min/Typ/Max tables (Symbol | Parameter | Min | Typ | Max | Unit | Test Conditions):
+        - Position 2 = Min
+        - Position 3 = Typ
+        - Position 4 = Max
         
         Returns:
             SourceValueSlots with values and evidence, or None if cannot determine
@@ -154,22 +229,52 @@ class ShadowFinalizer:
         if not row_cells or len(row_cells) < 5:
             return None
         
-        # Try to parse values from cells
-        # Position 2 = Min, Position 3 = Typ, Position 4 = Max
-        min_val = self._parse_numeric(row_cells[2]) if len(row_cells) > 2 else None
-        typ_val = self._parse_numeric(row_cells[3]) if len(row_cells) > 3 else None
-        max_val = self._parse_numeric(row_cells[4]) if len(row_cells) > 4 else None
+        # Detect table schema from header
+        schema = self._detect_table_schema(table_header or [])
+        column_roles = schema.get("column_roles", {})
+        
+        # Extract values based on column roles
+        min_val = None
+        typ_val = None
+        max_val = None
+        value_val = None
+        
+        if schema["type"] == "values":
+            # Single value column table
+            for i, val in enumerate(row_cells):
+                role = column_roles.get(i)
+                if role == 'value':
+                    value_val = self._parse_numeric(val)
+        elif schema["type"] == "min_typ_max":
+            # Min/Typ/Max table
+            for i, val in enumerate(row_cells):
+                role = column_roles.get(i)
+                if role == 'min':
+                    min_val = self._parse_numeric(val)
+                elif role == 'typ':
+                    typ_val = self._parse_numeric(val)
+                elif role == 'max':
+                    max_val = self._parse_numeric(val)
+        else:
+            # Unknown schema - fallback to original logic
+            min_val = self._parse_numeric(row_cells[2]) if len(row_cells) > 2 else None
+            typ_val = self._parse_numeric(row_cells[3]) if len(row_cells) > 3 else None
+            max_val = self._parse_numeric(row_cells[4]) if len(row_cells) > 4 else None
         
         # Check if any value was found
-        if min_val is None and typ_val is None and max_val is None:
+        if min_val is None and typ_val is None and max_val is None and value_val is None:
             return None
         
         return SourceValueSlots(
             min=min_val,
             typ=typ_val,
             max=max_val,
+            value=value_val,
+            schema_type=schema["type"],
             slot_evidence={
-                "method": "column_position",
+                "method": "table_header_based",
+                "schema_type": schema["type"],
+                "column_roles": {str(k): v for k, v in column_roles.items()},
                 "row_cells_preview": row_cells[:6],
             }
         )
@@ -288,7 +393,9 @@ class ShadowFinalizer:
         
         # Get Agent1 candidates for this field
         agent1_field = self.agent1_fields.get(field_id, {})
-        selected_candidate = agent1_field.get("selected_candidate", {})
+        # Handle selected_candidate being None
+        raw_selected_candidate = agent1_field.get("selected_candidate") if agent1_field else None
+        selected_candidate = raw_selected_candidate if raw_selected_candidate else {}
         row_cells = selected_candidate.get("row_cells", [])
         
         # Get resolved_condition from enriched row lookup
@@ -390,13 +497,14 @@ class ShadowFinalizer:
                 diffs.append(diff)
                 result.change_type = ChangeType.CONDITION_RESTORED
         
-        # Extract source slots from row_cells
-        source_slots = self._extract_source_slots_from_row_cells(row_cells, field_config)
+        # Extract source slots from row_cells using table header
+        table_header = self._get_table_header(source_page, source_table_index) if source_page is not None else []
+        source_slots = self._extract_source_slots_from_row_cells(row_cells, field_config, table_header)
         if source_slots and source_slots.has_any_value():
             result.source_value_slots = source_slots
             
-            # Check if Agent2 values match source slots
-            if self._check_slot_discrepancy(result, source_slots):
+            # Check if Agent2 values match source slots (skip for "values" schema - Agent2 may be correct)
+            if source_slots.schema_type != "values" and self._check_slot_discrepancy(result, source_slots):
                 # Agent2 put value in wrong slot - restore from source
                 diff = self._create_slot_restoration_diff(
                     field_id, result, source_slots, agent2_param
@@ -420,16 +528,43 @@ class ShadowFinalizer:
         """
         Check if there's a discrepancy between Agent2 values and source slots.
         
+        For Min/Typ/Max tables:
+        - If source has min value and Agent2 didn't put it in min slot, that's a discrepancy
+        - If source has typ value and Agent2 didn't put it in typ slot, that's a discrepancy
+        - If source has max value and Agent2 didn't put it in max slot, that's a discrepancy
+        
         Returns True if there's a discrepancy that should be corrected.
         """
         if not source_slots.has_any_value():
             return False
         
-        # Check if source has explicit Min slot value
+        # For Min/Typ/Max tables, check each slot
+        if source_slots.schema_type == "min_typ_max":
+            # Check Min slot
+            if source_slots.min is not None:
+                if result.min != source_slots.min:
+                    # Source has min but Agent2 didn't put it in min slot
+                    # Check if Agent2 put it in value or typ or max
+                    if result.value == source_slots.min or result.typ == source_slots.min or result.max == source_slots.min:
+                        return True
+            
+            # Check Typ slot
+            if source_slots.typ is not None:
+                if result.typ != source_slots.typ:
+                    # Source has typ but Agent2 didn't put it in typ slot
+                    if result.value == source_slots.typ or result.min == source_slots.typ or result.max == source_slots.typ:
+                        return True
+            
+            # Check Max slot
+            if source_slots.max is not None:
+                if result.max != source_slots.max:
+                    # Source has max but Agent2 didn't put it in max slot
+                    if result.value == source_slots.max or result.min == source_slots.max or result.typ == source_slots.max:
+                        return True
+        
+        # Legacy check for "values" tables or unknown schema - only check min->value case
         if source_slots.min is not None:
-            # Source has Min value
             if result.min is None and source_slots.min == result.value:
-                # Agent2 put source min in "value" instead of "min"
                 return True
         
         return False
@@ -443,6 +578,14 @@ class ShadowFinalizer:
     ) -> FinalizerDiff | None:
         """
         Create a diff for slot restoration.
+        
+        For "values" tables:
+        - Source value goes to result.value
+        - Clear min/typ/max
+        
+        For "min_typ_max" tables:
+        - Restore min/typ/max from source
+        - result.value unchanged
         """
         before = {
             "min": agent2_param.get("min"),
@@ -451,12 +594,37 @@ class ShadowFinalizer:
             "value": agent2_param.get("value"),
         }
         
-        # Restore from source slots
-        result.min = source_slots.min
-        result.typ = source_slots.typ
-        result.max = source_slots.max
-        # Keep value as first non-None or None
-        result.value = None
+        schema_type = source_slots.schema_type
+        
+        if schema_type == "values":
+            # For values table, restore value from source
+            result.value = source_slots.value
+            result.min = None
+            result.typ = None
+            result.max = None
+            reason = "Agent2 placed source value in wrong slot (min/typ/max). Restored to 'value' slot."
+        elif schema_type == "min_typ_max":
+            # For min_typ_max table, restore min/typ/max from source
+            result.min = source_slots.min
+            result.typ = source_slots.typ
+            result.max = source_slots.max
+            # Determine which slot was wrong
+            wrong_slots = []
+            if source_slots.min is not None and agent2_param.get("min") != source_slots.min:
+                wrong_slots.append(f"min: expected {source_slots.min}, got {agent2_param.get('min')}")
+            if source_slots.typ is not None and agent2_param.get("typ") != source_slots.typ:
+                wrong_slots.append(f"typ: expected {source_slots.typ}, got {agent2_param.get('typ')}")
+            if source_slots.max is not None and agent2_param.get("max") != source_slots.max:
+                wrong_slots.append(f"max: expected {source_slots.max}, got {agent2_param.get('max')}")
+            reason = f"Agent2 placed source values in wrong slots. Restored from source: {', '.join(wrong_slots)}"
+        else:
+            # Fallback - original behavior
+            result.min = source_slots.min
+            result.typ = source_slots.typ
+            result.max = source_slots.max
+            result.value = None
+            reason = "Agent2 placed source min in wrong slot. Restored from source."
+        
         result.change_type = ChangeType.SOURCE_SLOT_RESTORED
         
         after = {
@@ -471,9 +639,11 @@ class ShadowFinalizer:
             change_type=ChangeType.SOURCE_SLOT_RESTORED,
             before=before,
             after=after,
-            reason="Agent2 placed source min in 'value' slot instead of 'min'. Restored from source.",
+            reason=reason,
             source_row_id=result.source_row_id,
             evidence=[
+                f"schema_type={schema_type}",
+                f"source_slots.value={source_slots.value}",
                 f"source_slots.min={source_slots.min}",
                 f"source_slots.typ={source_slots.typ}",
                 f"source_slots.max={source_slots.max}",
@@ -549,16 +719,22 @@ class ShadowFinalizer:
         agent1_field: dict,
     ) -> dict | None:
         """
-        Find a better module_type candidate from Agent1 candidates.
+        Find a better module_type candidate from Agent1 candidates AND enriched_payload.
         
-        Look for candidates that match short_code constraints:
-        - Short (<=24 chars)
-        - No commas
-        - Likely a module type code (ME3, etc.)
+        Search order:
+        1. Agent1 selected/retained candidates (existing logic)
+        2. EnrichedPayload rows with row_type=unknown matching preferred_labels
+        
+        Preferred labels: Package Type, Module Type, Package
+        Excluded labels: Description, Product Description, General Description
         """
-        candidates = agent1_field.get("candidates", [])
+        preferred_labels = ["package type", "module type", "package"]
+        excluded_labels = ["description", "product description", "general description"]
         
         short_code_candidates = []
+        
+        # 1. Search Agent1 candidates (existing logic)
+        candidates = agent1_field.get("candidates", [])
         for c in candidates:
             val = c.get("value") or ""
             if not val:
@@ -574,7 +750,51 @@ class ShadowFinalizer:
                             "value": val,
                             "confidence": c.get("confidence", 0.7),
                             "row_id": f"page_{c.get('source_page')}_row_{c.get('row_index')}",
+                            "source": "agent1",
                         })
+        
+        # 2. Search enriched_payload for Package Type rows (row_type=unknown)
+        for page in self.enriched_payload.get("pages", []):
+            for table in page.get("tables", []):
+                for row in table.get("rows", []):
+                    row_type = row.get("row_type", "")
+                    # Search in unknown and parameter rows
+                    if row_type not in ["unknown", "parameter"]:
+                        continue
+                    
+                    raw_cells = row.get("raw_cells", [])
+                    if len(raw_cells) < 2:
+                        continue
+                    
+                    # Check if this row matches preferred labels
+                    label = str(raw_cells[0]).lower().strip()
+                    if not any(pl in label for pl in preferred_labels):
+                        continue
+                    
+                    # Check if excluded labels appear
+                    if any(el in label for el in excluded_labels):
+                        continue
+                    
+                    # Get the value (usually in col 1)
+                    val = str(raw_cells[1]).strip() if len(raw_cells) > 1 else ""
+                    
+                    if not val:
+                        continue
+                    
+                    # Apply semantic constraints
+                    if len(val) > 24 or "," in val:
+                        continue
+                    
+                    # Looks like a valid module type code
+                    short_code_candidates.append({
+                        "value": val,
+                        "confidence": 0.8,  # Slightly lower than Agent1
+                        "row_id": row.get("row_id"),
+                        "source": "enriched_payload",
+                        "page": row.get("page_number"),
+                        "table": row.get("table_index"),
+                        "row_idx": row.get("row_index"),
+                    })
         
         if short_code_candidates:
             # Return the highest confidence candidate
