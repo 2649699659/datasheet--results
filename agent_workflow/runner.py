@@ -29,6 +29,31 @@ from .artifacts import ArtifactPaths, load_payload, load_agent1, load_agent2, lo
 logger = logging.getLogger(__name__)
 
 
+def _get_prompt_version_info() -> dict:
+    """Compute prompt version info for artifact tracking."""
+    import hashlib
+    
+    prompts_dir = Path(__file__).parent / "prompts"
+    
+    prompts = {
+        "agent1": prompts_dir / "agent1_table_classifier_v1.md",
+        "agent2": prompts_dir / "agent2_validator.md",
+        "agent3": prompts_dir / "agent3_cross_check_v1.md",
+    }
+    
+    version_info = {}
+    for name, path in prompts.items():
+        if path.exists():
+            sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+            version_info[name] = {
+                "file": path.name,
+                "path": str(path),
+                "hash": sha256,
+            }
+    
+    return version_info
+
+
 def run_workflow(
     pdf_path: str,
     output_dir: str,
@@ -321,6 +346,7 @@ def run_workflow(
         errors=errors,
         warnings=warnings,
         elapsed_seconds=elapsed,
+        prompt_version_info=_get_prompt_version_info(),
     )
 
     # Save result

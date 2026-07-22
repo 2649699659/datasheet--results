@@ -253,6 +253,7 @@ def save_workflow_result(result: WorkflowResult, path: Path) -> None:
             "errors": result.errors,
             "warnings": result.warnings,
             "elapsed_seconds": result.elapsed_seconds,
+            "prompt_version_info": result.prompt_version_info,
             "agent1_summary": result.agent1.to_dict() if result.agent1 else None,
             "agent2_summary": result.agent2.to_dict() if result.agent2 else None,
             "agent3_summary": result.agent3.to_dict() if result.agent3 else None,

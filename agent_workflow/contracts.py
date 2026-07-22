@@ -465,3 +465,4 @@ class WorkflowResult:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     elapsed_seconds: float = 0.0
+    prompt_version_info: dict = field(default_factory=dict)

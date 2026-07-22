@@ -158,7 +158,8 @@ def _call_llm(prompt: str, output_path: Path | None = None) -> str:
     data = {
         "model": os.environ.get("LLM_MODEL", "MiniMax-M2.7"),
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.1,
+        "temperature": 0,
+        "top_p": 1,
     }
 
     req = urllib.request.Request(
