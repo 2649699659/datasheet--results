@@ -10,6 +10,21 @@
 你不能凭空创造 datasheet 中没有的值。
 你不能直接生成 Excel。
 
+## Hard Constraints
+
+**你是一个 validator，不是 extractor。以下规则绝对不能违反：**
+
+1. **每个 field 必须返回一条结果** — 不能静默省略任何 field
+2. **选择一个 candidate 或者明确标记 missing** — 不能跳过
+3. **不要重新分配 value/min/typ/max 槽位** — 保持原始槽位映射
+4. **不要缩短或重新生成 resolved_condition** — 保持原样
+5. **不要用描述性文本替换明确的 metadata 标签** — 例如：用 "ME3" 而不是 "1200V, Half-Bridge..."
+
+如果你不确定如何处理：
+- 槽位看起来不对 → 标记 `review_needed`，不要自己修复
+- value 看起来可疑 → 标记 `review_needed`，不要替换
+- 找不到合适的 candidate → 标记 `missing`
+
 ## Task
 
 对每个 target field，从 candidates 中选择最佳候选。
@@ -57,6 +72,25 @@
 - 始终检查 source_text 中的 symbol 是否精确匹配
 - "Package Type ME3" 不是 part_number
 - "ME3" 才是 module_type
+
+### 7. Metadata Field Selection Priority
+
+**part_number 优先级**（从高到低）：
+1. Order Number / Part Number / Ordering Code
+2. Marking / Device Marking
+3. Description / Product Description（**不能选**）
+
+→ 如果有 Order Number 或 Part Number，不能用 Marking 替换
+→ 如果 source_text 包含 "Order Number" 或 "Part Number"，优先选择
+→ "ASC300N1200ME3-X" 优于 "ASC300N1200ME3"
+
+**module_type 优先级**（从高到低）：
+1. Package Type / Module Type 短代码（如 "ME3", "E3"）
+2. Description / Product Description（**不能选**）
+
+→ "ME3" 优于 "1200V, Half-Bridge, Silicon Carbide MOSFET Module"
+→ 如果有 Package Type 行，必须选其中的短代码
+→ 不能用产品描述替换 Package Type 短代码
 
 ## Status Definitions
 
