@@ -8,7 +8,10 @@ the original CamelotPayload structure.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .condition_resolver import RowConditionContext
 
 
 class RowType(str, Enum):
@@ -63,7 +66,12 @@ class EnrichedRow:
 
     # Phase 2A: Condition sources (where the condition came from)
     # Structure: {"row": str | None, "table_heading": str | None, "page_heading": str | None}
+    # NOTE: This is kept for backward compatibility. The new structure is in condition_context.
     condition_sources: dict[str, str | None] | None = None
+
+    # Condition layers (Phase 2A, 2B, 3A write to separate layers)
+    # Phase 4: Unified resolver generates resolved_condition from these layers
+    condition_context: "RowConditionContext | None" = None
 
     # Phase 3A: Shared condition propagation
     shared_condition_group_id: str | None = None       # e.g., "p3_t0_group_1"
@@ -74,6 +82,7 @@ class EnrichedRow:
     quality_flags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        from .condition_resolver import condition_context_to_dict
         return {
             "row_id": self.row_id,
             "page_number": self.page_number,
@@ -87,6 +96,7 @@ class EnrichedRow:
             "resolved_condition": self.resolved_condition,
             "default_conditions": self.default_conditions,
             "condition_sources": self.condition_sources,
+            "condition_context": condition_context_to_dict(self.condition_context),
             "shared_condition_group_id": self.shared_condition_group_id,
             "shared_condition_source_row_id": self.shared_condition_source_row_id,
             "context_status": self.context_status.value if isinstance(self.context_status, ContextStatus) else self.context_status,
@@ -95,6 +105,7 @@ class EnrichedRow:
 
     @classmethod
     def from_dict(cls, d: dict) -> "EnrichedRow":
+        from .condition_resolver import dict_to_condition_context
         return cls(
             row_id=d["row_id"],
             page_number=d["page_number"],
@@ -108,6 +119,7 @@ class EnrichedRow:
             resolved_condition=d.get("resolved_condition"),
             default_conditions=dict(d.get("default_conditions", {})),
             condition_sources=d.get("condition_sources"),
+            condition_context=dict_to_condition_context(d.get("condition_context")),
             shared_condition_group_id=d.get("shared_condition_group_id"),
             shared_condition_source_row_id=d.get("shared_condition_source_row_id"),
             context_status=ContextStatus(d["context_status"]) if d["context_status"] in [e.value for e in ContextStatus] else d.get("context_status", "unchanged"),

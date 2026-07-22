@@ -27,6 +27,32 @@ from agent_workflow.enrichment import (
     RowType,
     ContextStatus,
 )
+from agent_workflow.enrichment.condition_resolver import _parse_condition_str
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper functions
+# ─────────────────────────────────────────────────────────────────────────────
+
+def normalize_and_parse(condition_str: str) -> dict[str, str]:
+    """
+    Parse a condition string into key-value pairs for test assertions.
+    
+    Handles Unicode normalization and key-value extraction.
+    """
+    import re
+    
+    if not condition_str:
+        return {}
+    
+    # Normalize Unicode characters
+    normalized = condition_str
+    # Normalize degree symbol variations to °
+    normalized = re.sub(r'\u00b0|\u2103|\uf0b0|℃', '°', normalized)
+    # Normalize micro sign
+    normalized = re.sub(r'\u00b5|\u03bcs', 'µ', normalized)
+    
+    return _parse_condition_str(normalized)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -694,24 +720,33 @@ class TestPhase2ASupplementary(unittest.TestCase):
     # ── Gate charge / switch energy → TC=25°C ──────────────────────────────
 
     def test_qgs_has_tc_25c(self):
-        """QGS rows in p2_t0 and p2_t1 (Dynamic section with TC=25°C heading) must have TC=25°C."""
-        # Only p2_t0 (table_index=0) and p2_t1 (table_index=1) have section headings with TC=25°C
+        """QGS rows in p2_t0 must have VDD=800V, VGS=-5/+18V, ID=150A, and TC=25°C.
+        
+        Note: p2_t1 QGS (p2_t1_r21) only has TC=25°C (no test conditions in raw cells).
+        """
         found = 0
         for ep in self.enriched.pages:
             if ep.page_number != 2:
                 continue
             for et in ep.tables:
-                if et.table_index not in (0, 1):
+                if et.table_index != 0:  # Only p2_t0 has QGS with full conditions
                     continue
                 for er in et.rows:
                     if er.raw_cells and er.raw_cells[0] == 'QGS':
-                        self.assertEqual(er.resolved_condition, 'TC=25°C',
+                        conditions = normalize_and_parse(er.resolved_condition or '')
+                        self.assertEqual(conditions.get('TC'), '25°C',
                             f"QGS [{er.row_id}] expected TC=25°C, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('VDD'), '800V',
+                            f"QGS [{er.row_id}] expected VDD=800V, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('VGS'), '-5/+18V',
+                            f"QGS [{er.row_id}] expected VGS=-5/+18V, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('ID'), '150A',
+                            f"QGS [{er.row_id}] expected ID=150A, got {er.resolved_condition}")
                         found += 1
-        self.assertGreater(found, 0, "No QGS row found in p2_t0 or p2_t1")
+        self.assertGreater(found, 0, "No QGS row found in p2_t0")
 
     def test_qgd_has_tc_25c(self):
-        """QGD rows in p2_t0 and p2_t1 must have TC=25°C."""
+        """QGD rows in p2_t0 and p2_t1 must have VDD=800V, VGS=-5/+18V, ID=150A, and TC=25°C."""
         found = 0
         for ep in self.enriched.pages:
             if ep.page_number != 2:
@@ -721,58 +756,94 @@ class TestPhase2ASupplementary(unittest.TestCase):
                     continue
                 for er in et.rows:
                     if er.raw_cells and er.raw_cells[0] == 'QGD':
-                        self.assertEqual(er.resolved_condition, 'TC=25°C',
+                        conditions = normalize_and_parse(er.resolved_condition or '')
+                        self.assertEqual(conditions.get('TC'), '25°C',
                             f"QGD [{er.row_id}] expected TC=25°C, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('VDD'), '800V',
+                            f"QGD [{er.row_id}] expected VDD=800V, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('VGS'), '-5/+18V',
+                            f"QGD [{er.row_id}] expected VGS=-5/+18V, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('ID'), '150A',
+                            f"QGD [{er.row_id}] expected ID=150A, got {er.resolved_condition}")
                         found += 1
         self.assertGreater(found, 0, "No QGD row found in p2_t0 or p2_t1")
 
     def test_qg_has_tc_25c(self):
-        """QG rows in p2_t0 and p2_t1 must have TC=25°C."""
+        """QG rows in p1_t0 must have VDD=800V, VGS=-5/+18V, ID=150A, and TC=25°C."""
         found = 0
         for ep in self.enriched.pages:
-            if ep.page_number != 2:
+            if ep.page_number != 1:
                 continue
             for et in ep.tables:
-                if et.table_index not in (0, 1):
+                if et.table_index != 0:
                     continue
                 for er in et.rows:
                     if er.raw_cells and er.raw_cells[0] == 'QG':
-                        self.assertEqual(er.resolved_condition, 'TC=25°C',
+                        conditions = normalize_and_parse(er.resolved_condition or '')
+                        self.assertEqual(conditions.get('TC'), '25°C',
                             f"QG [{er.row_id}] expected TC=25°C, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('VDD'), '800V',
+                            f"QG [{er.row_id}] expected VDD=800V, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('VGS'), '-5/+18V',
+                            f"QG [{er.row_id}] expected VGS=-5/+18V, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('ID'), '150A',
+                            f"QG [{er.row_id}] expected ID=150A, got {er.resolved_condition}")
                         found += 1
-        self.assertGreater(found, 0, "No QG row found in p2_t0 or p2_t1")
+        self.assertGreater(found, 0, "No QG row found in p1_t0")
 
     def test_eon_has_tc_25c(self):
-        """Eon rows in p2_t0 and p2_t1 must have TC=25°C."""
+        """Eon rows in p2_t0 must have VDS=800V, VGS=-5/+18V, ID=150A, RG(ext)=5Ω, Load=50µH, and TC=25°C."""
         found = 0
         for ep in self.enriched.pages:
             if ep.page_number != 2:
                 continue
             for et in ep.tables:
-                if et.table_index not in (0, 1):
+                if et.table_index != 0:
                     continue
                 for er in et.rows:
                     if er.raw_cells and er.raw_cells[0] == 'Eon':
-                        self.assertEqual(er.resolved_condition, 'TC=25°C',
+                        conditions = normalize_and_parse(er.resolved_condition or '')
+                        self.assertEqual(conditions.get('TC'), '25°C',
                             f"Eon [{er.row_id}] expected TC=25°C, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('VDS'), '800V',
+                            f"Eon [{er.row_id}] expected VDS=800V, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('VGS'), '-5/+18V',
+                            f"Eon [{er.row_id}] expected VGS=-5/+18V, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('ID'), '150A',
+                            f"Eon [{er.row_id}] expected ID=150A, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('RG(ext)'), '5Ω',
+                            f"Eon [{er.row_id}] expected RG(ext)=5Ω, got {er.resolved_condition}")
+                        self.assertIn('Load', conditions,
+                            f"Eon [{er.row_id}] expected Load in conditions, got {er.resolved_condition}")
                         found += 1
-        self.assertGreater(found, 0, "No Eon row found in p2_t0 or p2_t1")
+        self.assertGreater(found, 0, "No Eon row found in p2_t0")
 
     def test_eoff_has_tc_25c(self):
-        """Eoff rows in p2_t0 and p2_t1 must have TC=25°C."""
+        """Eoff rows in p2_t0 must have VDS=800V, VGS=-5/+18V, ID=150A, RG(ext)=5Ω, Load=50µH, and TC=25°C."""
         found = 0
         for ep in self.enriched.pages:
             if ep.page_number != 2:
                 continue
             for et in ep.tables:
-                if et.table_index not in (0, 1):
+                if et.table_index != 0:
                     continue
                 for er in et.rows:
                     if er.raw_cells and er.raw_cells[0] == 'Eoff':
-                        self.assertEqual(er.resolved_condition, 'TC=25°C',
+                        conditions = normalize_and_parse(er.resolved_condition or '')
+                        self.assertEqual(conditions.get('TC'), '25°C',
                             f"Eoff [{er.row_id}] expected TC=25°C, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('VDS'), '800V',
+                            f"Eoff [{er.row_id}] expected VDS=800V, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('VGS'), '-5/+18V',
+                            f"Eoff [{er.row_id}] expected VGS=-5/+18V, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('ID'), '150A',
+                            f"Eoff [{er.row_id}] expected ID=150A, got {er.resolved_condition}")
+                        self.assertEqual(conditions.get('RG(ext)'), '5Ω',
+                            f"Eoff [{er.row_id}] expected RG(ext)=5Ω, got {er.resolved_condition}")
+                        self.assertIn('Load', conditions,
+                            f"Eoff [{er.row_id}] expected Load in conditions, got {er.resolved_condition}")
                         found += 1
-        self.assertGreater(found, 0, "No Eoff row found in p2_t0 or p2_t1")
+        self.assertGreater(found, 0, "No Eoff row found in p2_t0")
 
     # ── Body Diode → no TJ pollution to Physical Characteristics ──────────
 

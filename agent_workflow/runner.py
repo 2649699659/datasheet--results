@@ -205,6 +205,75 @@ def run_workflow(
                 f"fields={shadow_finalizer_result.get('report', {}).get('total_target_fields', 0)}, "
                 f"changes={len(shadow_finalizer_result.get('diffs', []))}"
             )
+
+            # ── ENFORCE MODE: Apply finalized results to agent2 ──────────────────
+            if finalizer_mode == "enforce" and shadow_finalizer_result:
+                from .contracts import Agent2Param
+                finalized = shadow_finalizer_result.get("finalized_results", {})
+
+                # Convert finalized_results dict to list of Agent2Param
+                new_final_params = []
+                for field_id, result_dict in finalized.items():
+                    # Parse source_row_id to get source_page, table_index, row_index
+                    source_page = None
+                    table_index = None
+                    row_index = None
+                    source_text = None
+
+                    source_row_id = result_dict.get("source_row_id")
+                    if source_row_id and isinstance(source_row_id, str):
+                        # Format: "p{p}_t{t}_r{r}" or "page_{p}_row_{r}"
+                        parts = source_row_id.replace("p", "").replace("page_", "").split("_t")
+                        if len(parts) >= 1:
+                            page_part = parts[0].replace("page_", "").replace("p", "")
+                            try:
+                                source_page = int(page_part)
+                            except ValueError:
+                                pass
+                        if len(parts) >= 2:
+                            table_row = parts[1].split("_r")
+                            if len(table_row) >= 1:
+                                try:
+                                    table_index = int(table_row[0])
+                                except ValueError:
+                                    pass
+                            if len(table_row) >= 2:
+                                try:
+                                    row_index = int(table_row[1].replace("r", ""))
+                                except ValueError:
+                                    pass
+
+                    # Parse status from result_dict
+                    status_val = result_dict.get("status", "missing")
+                    from .contracts import FieldStatus
+                    try:
+                        status = FieldStatus(status_val)
+                    except ValueError:
+                        status = FieldStatus.MISSING
+
+                    param = Agent2Param(
+                        field_id=field_id,
+                        status=status,
+                        value=result_dict.get("value"),
+                        min=result_dict.get("min"),
+                        typ=result_dict.get("typ"),
+                        max=result_dict.get("max"),
+                        unit=result_dict.get("unit"),
+                        condition=result_dict.get("condition"),
+                        source_page=source_page,
+                        table_index=table_index,
+                        row_index=row_index,
+                        source_text=source_text,
+                        confidence=result_dict.get("confidence", 0.0),
+                        reason=result_dict.get("reason", ""),
+                        warnings=result_dict.get("warnings", []),
+                        missing_reason=result_dict.get("missing_reason"),
+                    )
+                    new_final_params.append(param)
+
+                # Replace agent2.final_params with the new finalized params
+                agent2.final_params = new_final_params
+                logger.info(f"Enforce mode: Applied {len(new_final_params)} finalized params to agent2")
         except Exception as e:
             logger.error(f"Shadow Finalizer failed: {e}")
             warnings.append(f"Shadow Finalizer failed: {e}")

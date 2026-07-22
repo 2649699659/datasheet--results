@@ -290,6 +290,11 @@ def propagate_shared_conditions(
                         target_row.shared_condition_group_id = group_id
                         target_row.shared_condition_source_row_id = source_row.row_id
 
+                        # Initialize condition_context if not present
+                        if target_row.condition_context is None:
+                            from .condition_resolver import RowConditionContext, ConditionLayer
+                            target_row.condition_context = RowConditionContext()
+
                         # Update condition_sources to include shared_group
                         if target_row.condition_sources is None:
                             target_row.condition_sources = {}
@@ -299,33 +304,15 @@ def propagate_shared_conditions(
                         if "shared_condition_propagated" not in target_row.quality_flags:
                             target_row.quality_flags.append("shared_condition_propagated")
 
-                        # Build resolved_condition from source test conditions + Phase 2B temperature
-                        # Phase 3A adds test conditions to targets. But:
-                        # - If resolved_condition is None: add test conditions (normal case)
-                        # - If resolved_condition has test conditions (Phase 2A): don't add (keep Phase 2A)
-                        # - If resolved_condition has ONLY temperature (Phase 2B): add test conditions
-                        # The last case is when Phase 2B set temperature but no test conditions.
-                        should_overwrite = (
-                            target_row.resolved_condition is None or
-                            (
-                                "page_heading_applied" in target_row.quality_flags and
-                                not _has_test_conditions(target_row.resolved_condition or "")
-                            )
-                        )
+                        # Write shared conditions to shared_group layer
+                        # IMPORTANT: Do NOT check resolved_condition - always write to layer.
+                        # The unified resolver will handle merging with other layers.
+                        for k, v in source_parsed.items():
+                            if k not in target_row.condition_context.shared_group.values:
+                                target_row.condition_context.shared_group.values[k] = v
 
-                        if should_overwrite:
-                            merged = dict(source_parsed)
-
-                            # Add temperature from Phase 2B (page heading)
-                            if target_row.default_conditions:
-                                for k, v in target_row.default_conditions.items():
-                                    if k.upper() in TEMPERATURE_KEYS:
-                                        if k not in merged:
-                                            merged[k] = v
-
-                            # Build resolved_condition string
-                            resolved_parts = [f"{k}={v}" for k, v in merged.items()]
-                            target_row.resolved_condition = "; ".join(sorted(resolved_parts))
+                        target_row.condition_context.shared_group.source_row_ids.append(source_row.row_id)
+                        target_row.condition_context.shared_group.evidence_type = "shared_group_propagation"
 
                         # Update context_status
                         if target_row.context_status == ContextStatus.UNCHANGED:
@@ -360,28 +347,23 @@ def propagate_shared_conditions(
                         # Phase 2B set temperature (TJ=25°C), add test conditions from source
                         # BUT: skip if source already has meaningful conditions from Phase 2A.
                         # Phase 2A sets meaningful conditions (e.g., TC=25°C from section heading).
-                        # Phase 3A should NOT add test conditions to rows that already have
-                        # Phase 2A conditions.
-                        if source_row.resolved_condition and _has_test_conditions(source_row.resolved_condition):
-                            # Source already has meaningful conditions from Phase 2A - skip
-                            pass
-                        else:
-                            # Source has temperature-only from Phase 2B - add test conditions
-                            merged = {}
-                            if source_row.resolved_condition:
-                                merged = _parse_condition(source_row.resolved_condition)
-                            merged.update(source_parsed)
-
-                            # Add temperature from page heading if available
-                            if source_row.default_conditions:
-                                for k, v in source_row.default_conditions.items():
-                                    if k.upper() in TEMPERATURE_KEYS:
-                                        if k not in merged:
-                                            merged[k] = v
-
-                            source_row.resolved_condition = "; ".join(
-                                sorted(f"{k}={v}" for k, v in merged.items())
-                            )
+                        # Phase 3A source row handling for standalone sources (like tRR)
+                        # Write test conditions to shared_group layer.
+                        # IMPORTANT: Do NOT check resolved_condition or _has_test_conditions.
+                        # Always write to shared_group layer - the resolver handles merging.
+                        
+                        # Initialize condition_context if not present
+                        if source_row.condition_context is None:
+                            from .condition_resolver import RowConditionContext, ConditionLayer
+                            source_row.condition_context = RowConditionContext()
+                        
+                        # Write source_parsed (test conditions) to shared_group layer
+                        for k, v in source_parsed.items():
+                            if k not in source_row.condition_context.shared_group.values:
+                                source_row.condition_context.shared_group.values[k] = v
+                        
+                        source_row.condition_context.shared_group.source_row_ids.append(source_row.row_id)
+                        source_row.condition_context.shared_group.evidence_type = "shared_group_source"
 
                 i += 1
 
