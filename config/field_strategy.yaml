@@ -1,0 +1,602 @@
+# Field Strategy Configuration
+# Defines extraction rules for each target field
+# Replaces hardcoded priorities in prompts with declarative YAML
+
+# Each field has:
+#   preferred_labels: Labels that indicate this field with HIGH priority
+#   fallback_labels: Labels that indicate this field with MEDIUM priority
+#   rejected_labels: Labels that should NOT be selected for this field
+#   value_shape: Constraints on the value format (type, max_length, etc.)
+#   output_required: If true, field must always appear in output (even if missing)
+#   preserve_source_slots: If true, source slots (min/typ/max) must not be rewritten
+
+fields:
+
+  # ============ Basic Info ============
+
+  manufacturer:
+    preferred_labels:
+      - Manufacturer
+      - Manufactured by
+      - Brand
+    fallback_labels:
+      - Company
+      - Vendor
+    rejected_labels: []
+    value_shape:
+      type: company_name
+      max_length: 60
+    output_required: true
+    preserve_source_slots: false
+
+  part_number:
+    preferred_labels:
+      - Order Number
+      - Part Number
+      - Ordering Code
+      - Ordering Part Number
+      - O/N
+      - P/N
+    fallback_labels:
+      - Marking
+      - Device Marking
+      - Type
+      - Model No.
+    rejected_labels:
+      - Description
+      - Product Description
+      - General Description
+    value_shape:
+      type: alphanumeric_code
+      max_length: 30
+      allow_hyphen: true
+      allow_underscore: true
+    output_required: true
+    preserve_source_slots: false
+
+  module_type:
+    preferred_labels:
+      - Package Type
+      - Module Type
+      - Package
+      - Configuration
+      - Topology
+    fallback_labels:
+      - Product Type
+    rejected_labels:
+      - Description
+      - General Description
+      - Product Description
+      - 1200V
+      - Half-Bridge
+    value_shape:
+      type: short_code
+      max_length: 20
+      reject_sentence: true
+      reject_comma: true
+      reject_long_description: true
+    output_required: true
+    preserve_source_slots: false
+
+  # ============ Ratings ============
+
+  voltage_rating:
+    preferred_labels:
+      - Voltage Rating
+      - VDS
+      - VDSs
+      - Drain-Source Voltage
+      - Collector-Emitter Voltage
+      - VCES
+      - VCE
+    fallback_labels:
+      - Breakdown Voltage
+      - Maximum Voltage
+    rejected_labels:
+      - Gate Voltage
+      - VGS
+    value_shape:
+      type: numeric_with_unit
+      unit: V
+    output_required: true
+    preserve_source_slots: true
+
+  current_rating:
+    preferred_labels:
+      - Current Rating
+      - ID
+      - IC
+      - Continuous Current
+      - Rated Current
+    fallback_labels:
+      - Maximum Current
+    rejected_labels:
+      - Peak Current
+      - Pulsed Current
+    value_shape:
+      type: numeric_with_unit
+      unit: A
+    output_required: true
+    preserve_source_slots: true
+
+  # ============ RDS(on) ============
+
+  rds_on_25c:
+    preferred_labels:
+      - RDS(on)
+      - RDS(on) @ 25°C
+      - On-Resistance
+      - Ron
+      - Drain-Source On Resistance
+    fallback_labels:
+      - Static Drain-Source On Resistance
+    rejected_labels:
+      - RDS(on) @ 150°C
+      - RDS(on) @ 175°C
+    value_shape:
+      type: numeric_with_unit
+      unit: mΩ
+    output_required: false  # May not exist for all modules
+    preserve_source_slots: true
+
+  rds_on_150c:
+    preferred_labels:
+      - RDS(on) @ 150°C
+      - RDS(on) @ 175°C
+      - On-Resistance
+    fallback_labels: []
+    rejected_labels:
+      - RDS(on) @ 25°C
+    value_shape:
+      type: numeric_with_unit
+      unit: mΩ
+    output_required: false  # May not exist for all modules
+    preserve_source_slots: true
+
+  # ============ Threshold Voltage ============
+
+  vgs_th:
+    preferred_labels:
+      - VGS(th)
+      - Vth
+      - Gate Threshold Voltage
+      - Threshold Voltage
+      - VGS(th) Gate-Source Threshold Voltage
+    fallback_labels:
+      - Gate Threshold
+    rejected_labels:
+      - VGS
+      - Gate Voltage
+    value_shape:
+      type: numeric_range
+      unit: V
+    output_required: true
+    preserve_source_slots: true
+
+  # ============ Capacitances ============
+
+  ciss:
+    preferred_labels:
+      - Ciss
+      - Input Capacitance
+      - Input Capacitance (Cgd + Cgs)
+    fallback_labels:
+      - C11
+      - C12
+    rejected_labels:
+      - Coss
+      - Crss
+    value_shape:
+      type: numeric_with_unit
+      unit: pF
+    output_required: true
+    preserve_source_slots: true
+
+  coss:
+    preferred_labels:
+      - Coss
+      - Output Capacitance
+      - Output Capacitance (Cds + Cgd)
+    fallback_labels:
+      - C22
+      - C23
+    rejected_labels:
+      - Ciss
+      - Crss
+    value_shape:
+      type: numeric_with_unit
+      unit: pF
+    output_required: true
+    preserve_source_slots: true
+
+  crss:
+    preferred_labels:
+      - Crss
+      - Reverse Transfer Capacitance
+      - Miller Capacitance
+    fallback_labels:
+      - C12
+      - C23
+    rejected_labels:
+      - Ciss
+      - Coss
+    value_shape:
+      type: numeric_with_unit
+      unit: pF
+    output_required: true
+    preserve_source_slots: true
+
+  # ============ Gate Charge ============
+
+  qg:
+    preferred_labels:
+      - QG
+      - Qg
+      - Total Gate Charge
+      - Gate Charge (Total)
+    fallback_labels:
+      - QGT
+    rejected_labels:
+      - QGS
+      - QGD
+      - Qg1
+      - Qg2
+    value_shape:
+      type: numeric_with_unit
+      unit: nC
+    output_required: true
+    preserve_source_slots: true
+
+  qgs:
+    preferred_labels:
+      - QGS
+      - Qgs
+      - Gate-Source Charge
+    fallback_labels:
+      - Qg1
+    rejected_labels:
+      - QG
+      - QGD
+    value_shape:
+      type: numeric_with_unit
+      unit: nC
+    output_required: true
+    preserve_source_slots: true
+
+  qgd:
+    preferred_labels:
+      - QGD
+      - Qgd
+      - Gate-Drain Charge
+      - Miller Charge
+    fallback_labels:
+      - Qg2
+    rejected_labels:
+      - QG
+      - QGS
+    value_shape:
+      type: numeric_with_unit
+      unit: nC
+    output_required: true
+    preserve_source_slots: true
+
+  # ============ Switching Energies ============
+
+  eon:
+    preferred_labels:
+      - Eon
+      - EON
+      - Turn-On Energy
+      - Switching Energy (On)
+      - Turn-on Switching Energy
+    fallback_labels:
+      - Eon @ 25°C
+      - Eon @ 150°C
+    rejected_labels:
+      - Eoff
+    value_shape:
+      type: numeric_with_unit
+      unit: mJ
+    output_required: true
+    preserve_source_slots: true
+
+  eoff:
+    preferred_labels:
+      - Eoff
+      - EOFF
+      - Turn-Off Energy
+      - Switching Energy (Off)
+      - Turn-off Switching Energy
+    fallback_labels:
+      - Eoff @ 25°C
+      - Eoff @ 150°C
+    rejected_labels:
+      - Eon
+    value_shape:
+      type: numeric_with_unit
+      unit: mJ
+    output_required: true
+    preserve_source_slots: true
+
+  # ============ Reverse Recovery ============
+
+  trr:
+    preferred_labels:
+      - trr
+      - Reverse Recovery Time
+      - t_rr
+      - Body Diode Reverse Recovery Time
+    fallback_labels:
+      - tRR
+    rejected_labels:
+      - Qrr
+      - IRRM
+    value_shape:
+      type: numeric_with_unit
+      unit: ns
+    output_required: true
+    preserve_source_slots: true
+
+  qrr:
+    preferred_labels:
+      - Qrr
+      - QRR
+      - Reverse Recovery Charge
+      - Body Diode Reverse Recovery Charge
+    fallback_labels: []
+    rejected_labels:
+      - trr
+      - IRRM
+    value_shape:
+      type: numeric_with_unit
+      unit: μC
+    output_required: true
+    preserve_source_slots: true
+
+  irrm:
+    preferred_labels:
+      - IRRM
+      - Irrm
+      - Peak Reverse Recovery Current
+      - Reverse Recovery Current
+    fallback_labels: []
+    rejected_labels:
+      - trr
+      - Qrr
+    value_shape:
+      type: numeric_with_unit
+      unit: A
+    output_required: true
+    preserve_source_slots: true
+
+  err:
+    preferred_labels:
+      - Err
+      - ERR
+      - Reverse Recovery Energy
+      - Body Diode Reverse Recovery Energy
+    fallback_labels: []
+    rejected_labels:
+      - Eon
+      - Eoff
+      - trr
+      - Qrr
+    value_shape:
+      type: numeric_with_unit
+      unit: mJ
+    output_required: true
+    preserve_source_slots: true
+
+  # ============ Thermal ============
+
+  rth_jc:
+    preferred_labels:
+      - Rth JC
+      - Rth(j-c)
+      - Thermal Resistance Junction-Case
+      - Junction-to-Case Thermal Resistance
+    fallback_labels:
+      - Rth
+    rejected_labels:
+      - Rth JH
+      - Rth(j-h)
+    value_shape:
+      type: numeric_with_unit
+      unit: °C/W
+    output_required: false  # May not exist for all modules
+    preserve_source_slots: true
+
+  rth_jh:
+    preferred_labels:
+      - Rth JH
+      - Rth(j-h)
+      - Thermal Resistance Junction-Heatsink
+      - Junction-to-Heatsink Thermal Resistance
+    fallback_labels:
+      - Rth
+    rejected_labels:
+      - Rth JC
+      - Rth(j-c)
+    value_shape:
+      type: numeric_with_unit
+      unit: °C/W
+    output_required: false  # May not exist for all modules
+    preserve_source_slots: true
+
+  junction_temperature:
+    preferred_labels:
+      - Junction Temperature
+      - TJ
+      - Tj
+      - Operating Junction Temperature
+      - Junction Temperature Range
+    fallback_labels:
+      - Max Operating Temperature
+      - Temperature Range
+    rejected_labels:
+      - Storage Temperature
+      - TC
+    value_shape:
+      type: temperature_range
+      unit: °C
+    output_required: true
+    preserve_source_slots: true
+
+  # ============ Stray Inductance ============
+
+  lstray:
+    preferred_labels:
+      - Lstray
+      - Stray Inductance
+      - Commutation Inductance
+      - Module Stray Inductance
+    fallback_labels: []
+    rejected_labels:
+      - Ls
+      - Lσ
+    value_shape:
+      type: numeric_with_unit
+      unit: nH
+    output_required: true
+    preserve_source_slots: true
+
+  # ============ Mechanical ============
+
+  weight:
+    preferred_labels:
+      - Weight
+      - Mass
+      - Module Weight
+    fallback_labels:
+      - g
+    rejected_labels:
+      - Dimensions
+      - Length
+      - Width
+    value_shape:
+      type: numeric_with_unit
+      unit: g
+    output_required: true
+    preserve_source_slots: true
+
+  isol:
+    preferred_labels:
+      - Visol
+      - Viso
+      - Isolation Voltage
+      - Dielectric Strength
+      - Case Isolation Voltage
+      - Isolation Voltage (DC)
+    fallback_labels:
+      - Isolation
+      - Dielectric Withstand Voltage
+    rejected_labels:
+      - VCES
+      - VDS
+    value_shape:
+      type: numeric_with_unit
+      unit: V
+    output_required: true
+    preserve_source_slots: true
+
+  clearance_tt:
+    preferred_labels:
+      - Clearance Terminal-Terminal
+      - Clearance T-T
+      - Terminal to Terminal Clearance
+      - Clearance Terminal to Terminal
+    fallback_labels:
+      - Clearance
+      - Terminal Clearance
+    rejected_labels:
+      - Clearance T-B
+      - Clearance Terminal-Baseplate
+      - Creepage
+    value_shape:
+      type: numeric_with_unit
+      unit: mm
+    output_required: true
+    preserve_source_slots: true
+
+  clearance_tb:
+    preferred_labels:
+      - Clearance Terminal-Baseplate
+      - Clearance T-B
+      - Terminal to Baseplate Clearance
+      - Clearance Terminal to Baseplate
+    fallback_labels:
+      - Clearance
+      - Baseplate Clearance
+    rejected_labels:
+      - Clearance T-T
+      - Clearance Terminal-Terminal
+      - Creepage
+    value_shape:
+      type: numeric_with_unit
+      unit: mm
+    output_required: true
+    preserve_source_slots: true
+
+  creepage_tt:
+    preferred_labels:
+      - Creepage Terminal-Terminal
+      - Creepage T-T
+      - Terminal to Terminal Creepage
+      - Creepage Terminal to Terminal
+    fallback_labels:
+      - Creepage
+      - Terminal Creepage
+    rejected_labels:
+      - Creepage T-B
+      - Creepage Terminal-Baseplate
+      - Clearance
+    value_shape:
+      type: numeric_with_unit
+      unit: mm
+    output_required: true
+    preserve_source_slots: true
+
+  creepage_tb:
+    preferred_labels:
+      - Creepage Terminal-Baseplate
+      - Creepage T-B
+      - Terminal to Baseplate Creepage
+      - Creepage Terminal to Baseplate
+    fallback_labels:
+      - Creepage
+      - Baseplate Creepage
+    rejected_labels:
+      - Creepage T-T
+      - Creepage Terminal-Terminal
+      - Clearance
+    value_shape:
+      type: numeric_with_unit
+      unit: mm
+    output_required: true
+    preserve_source_slots: true
+
+# Shared condition groups - fields that share test conditions
+# Key: group_name, Value: list of field_ids
+shared_condition_groups:
+  capacitances:
+    - ciss
+    - coss
+    - crss
+  gate_charge:
+    - qg
+    - qgs
+    - qgd
+  switching_energies:
+    - eon
+    - eoff
+  reverse_recovery:
+    - trr
+    - qrr
+    - irrm
+    - err
+  isolation:
+    - isol
+    - clearance_tt
+    - clearance_tb
+    - creepage_tt
+    - creepage_tb
