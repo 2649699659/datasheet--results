@@ -33,6 +33,7 @@ def run_workflow(
     output_dir: str,
     disable_context_enrichment: bool = False,
     allow_context_enrichment_fallback: bool = False,
+    finalizer_mode: str = "shadow",
 ) -> WorkflowResult:
     """
     Run the full Agent Workflow for a single PDF.
@@ -42,6 +43,7 @@ def run_workflow(
         0.5. Enrich context (row classification, conditions, manufacturer)
         1. Agent 1: Candidate row selection → Agent1Result
         2. Agent 2: Parameter validation → Agent2Result
+        2.5. Shadow Finalizer (Phase 4.1) - generates shadow artifacts
         3. Agent 3: Cross-parameter consistency → Agent3Result
         4. Write Excel report
 
@@ -150,6 +152,63 @@ def run_workflow(
         except Exception as e:
             logger.error(f"Step 2 failed: {e}")
             warnings.append(f"Step 2 (Agent 2) failed: {e}")
+
+    # ── Step 2.5: Shadow Finalizer (Phase 4.1) ─────────────────────────────
+    shadow_finalizer_result = None
+    if agent2 is not None and agent1 is not None and finalizer_mode != "off":
+        try:
+            from .postprocess import ShadowFinalizer, FinalizerMode
+            from .postprocess.final_result_materializer import load_target_fields_config
+            
+            mode = FinalizerMode(finalizer_mode)
+            
+            # Load target fields config
+            target_fields = load_target_fields_config()
+            
+            # Run Shadow Finalizer
+            finalizer = ShadowFinalizer(
+                agent2_result=agent2.to_dict(),
+                agent1_result=agent1.to_dict(),
+                enriched_payload=enriched_payload.to_dict() if enriched_payload else {},
+                target_fields_config=target_fields,
+            )
+            shadow_finalizer_result = finalizer.run(mode=mode)
+            
+            # Save shadow artifacts
+            shadow_dir = ap.step0_5_report().parent
+            
+            # step2_5_finalized_shadow.json
+            shadow_shadow_path = shadow_dir / "step2_5_finalized_shadow.json"
+            shadow_shadow_path.write_text(
+                json.dumps(shadow_finalizer_result.get("finalized_results", {}), indent=2, ensure_ascii=False),
+                encoding="utf-8"
+            )
+            logger.info(f"Shadow Finalizer: Saved shadow to {shadow_shadow_path}")
+            
+            # step2_5_diff.json
+            shadow_diff_path = shadow_dir / "step2_5_diff.json"
+            shadow_diff_path.write_text(
+                json.dumps(shadow_finalizer_result.get("diffs", []), indent=2, ensure_ascii=False),
+                encoding="utf-8"
+            )
+            
+            # step2_5_report.json
+            shadow_report_path = shadow_dir / "step2_5_report.json"
+            shadow_report_path.write_text(
+                json.dumps(shadow_finalizer_result.get("report", {}), indent=2, ensure_ascii=False),
+                encoding="utf-8"
+            )
+            
+            logger.info(
+                f"Shadow Finalizer: mode={finalizer_mode}, "
+                f"fields={shadow_finalizer_result.get('report', {}).get('total_target_fields', 0)}, "
+                f"changes={len(shadow_finalizer_result.get('diffs', []))}"
+            )
+        except Exception as e:
+            logger.error(f"Shadow Finalizer failed: {e}")
+            warnings.append(f"Shadow Finalizer failed: {e}")
+            import traceback
+            traceback.print_exc()
 
     # ── Step 3: Agent 3 — Consistency Check ─────────────────────────────────
     agent3 = None
@@ -263,6 +322,12 @@ def parse_args():
         action="store_true",
         help="If Step 0.5 fails, continue with raw Camelot payload instead of aborting",
     )
+    parser.add_argument(
+        "--finalizer-mode",
+        choices=["off", "shadow", "enforce"],
+        default="shadow",
+        help="Finalizer mode: off=skip, shadow=generate artifacts only, enforce=replace Step 3/4 input (default: shadow)",
+    )
     return parser.parse_args()
 
 
@@ -279,6 +344,7 @@ def main():
         args.output,
         disable_context_enrichment=args.disable_context_enrichment,
         allow_context_enrichment_fallback=args.allow_context_enrichment_fallback,
+        finalizer_mode=args.finalizer_mode,
     )
 
     if result.status == "failed":
