@@ -243,7 +243,6 @@ def run_workflow(
                     source_page = None
                     table_index = None
                     row_index = None
-                    source_text = None
 
                     source_row_id = result_dict.get("source_row_id")
                     if source_row_id and isinstance(source_row_id, str):
@@ -268,6 +267,57 @@ def run_workflow(
                                 except ValueError:
                                     pass
 
+                    # Get source_value_slots for slot correction
+                    source_value_slots = result_dict.get("source_value_slots")
+                    schema_type = None
+                    if source_value_slots and isinstance(source_value_slots, dict):
+                        schema_type = source_value_slots.get("schema_type")
+
+                    # Determine correct value/min/typ/max based on schema_type
+                    # ISSUE 1 FIX: For "values" schema, use source_value_slots.value
+                    # For "min_typ_max" schema, use source_value_slots.min/typ/max
+                    final_value = result_dict.get("value")
+                    final_min = result_dict.get("min")
+                    final_typ = result_dict.get("typ")
+                    final_max = result_dict.get("max")
+
+                    if schema_type == "values":
+                        # Values table: only value slot should be used
+                        if source_value_slots and source_value_slots.get("value") is not None:
+                            final_value = source_value_slots.get("value")
+                            # Clear min/typ/max since this is a values table
+                            final_min = None
+                            final_typ = None
+                            final_max = None
+                    elif schema_type == "min_typ_max":
+                        # Min/Typ/Max table: use source_value_slots if Agent2 slots are wrong
+                        if source_value_slots:
+                            sv_value = source_value_slots.get("value")
+                            sv_min = source_value_slots.get("min")
+                            sv_typ = source_value_slots.get("typ")
+                            sv_max = source_value_slots.get("max")
+                            # If Agent2 has value in wrong slot (e.g., max instead of typ),
+                            # but source has the correct slot assignment, use source
+                            if final_value is not None and sv_value is None:
+                                # Agent2 has value but source doesn't - likely wrong slot
+                                if sv_min is not None and final_min is None:
+                                    final_min = sv_min
+                                if sv_typ is not None and final_typ is None:
+                                    final_typ = sv_typ
+                                if sv_max is not None and final_max is None:
+                                    final_max = sv_max
+                                final_value = None  # Clear value since source uses min/typ/max
+
+                    # ISSUE 2 FIX: For module_type, extract from source_text if value is None
+                    # but source_text contains a valid short code
+                    final_source_text = result_dict.get("source_text")
+                    if field_id == "module_type" and final_value is None and final_source_text:
+                        import re
+                        # Try to extract short code from source_text like "Package Type ME3"
+                        match = re.search(r'(?:package\s*type|module\s*type)[:\s]*([A-Z0-9]{2,8})', final_source_text, re.IGNORECASE)
+                        if match:
+                            final_value = match.group(1)
+
                     # Parse status from result_dict
                     status_val = result_dict.get("status", "missing")
                     from .contracts import FieldStatus
@@ -279,16 +329,16 @@ def run_workflow(
                     param = Agent2Param(
                         field_id=field_id,
                         status=status,
-                        value=result_dict.get("value"),
-                        min=result_dict.get("min"),
-                        typ=result_dict.get("typ"),
-                        max=result_dict.get("max"),
+                        value=final_value,
+                        min=final_min,
+                        typ=final_typ,
+                        max=final_max,
                         unit=result_dict.get("unit"),
                         condition=result_dict.get("condition"),
                         source_page=source_page,
                         table_index=table_index,
                         row_index=row_index,
-                        source_text=source_text,
+                        source_text=final_source_text,
                         confidence=result_dict.get("confidence", 0.0),
                         reason=result_dict.get("reason", ""),
                         warnings=result_dict.get("warnings", []),
