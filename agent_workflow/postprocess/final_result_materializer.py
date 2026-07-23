@@ -144,8 +144,45 @@ class ShadowFinalizer:
         """Get the configuration for a target field."""
         return self.target_fields.get(field_id)
 
-    def _get_table_header(self, page_number: int, table_index: int) -> list[str]:
-        """Get table header cells for a given page and table."""
+    def _get_table_header(self, page_number: int, table_index: int, source_row_id: str | None = None) -> list[str]:
+        """
+        Get table header cells for a given page and table.
+        
+        If source_row_id is provided, finds the nearest preceding column_header row
+        within the same table, accounting for tables with multiple header rows
+        (e.g., one for 'Values' schema and another for 'Min/Typ/Max' schema).
+        """
+        if source_row_id is None:
+            return self.table_header_lookup.get((page_number, table_index), [])
+        
+        # Parse row_id to get target row index: format "p{p}_t{t}_r{r}"
+        # e.g., "p1_t0_r7" -> page=1, table=0, row=7
+        try:
+            parts = source_row_id.split("_")
+            if len(parts) >= 3 and parts[0].startswith("p") and parts[1].startswith("t") and parts[2].startswith("r"):
+                target_row_idx = int(parts[2].replace("r", ""))
+            else:
+                return self.table_header_lookup.get((page_number, table_index), [])
+        except (ValueError, IndexError):
+            return self.table_header_lookup.get((page_number, table_index), [])
+        
+        # Find the table in enriched_payload
+        for page in self.enriched_payload.get("pages", []):
+            if page.get("page_number") != page_number:
+                continue
+            for table in page.get("tables", []):
+                if table.get("table_index") != table_index:
+                    continue
+                rows = table.get("rows", [])
+                # Look backward from target_row_idx to find nearest column_header
+                for i in range(target_row_idx - 1, -1, -1):
+                    if i < len(rows):
+                        row = rows[i]
+                        if row.get("row_type") == "column_header":
+                            return row.get("raw_cells", [])
+                # No column_header found, fall back to first row
+                return rows[0].get("raw_cells", []) if rows else []
+        
         return self.table_header_lookup.get((page_number, table_index), [])
 
     def _detect_table_schema(self, table_header: list[str]) -> dict:
@@ -498,7 +535,7 @@ class ShadowFinalizer:
                 result.change_type = ChangeType.CONDITION_RESTORED
 
         # Extract source slots from row_cells using table header
-        table_header = self._get_table_header(source_page, source_table_index) if source_page is not None else []
+        table_header = self._get_table_header(source_page, source_table_index, source_row_id)
         source_slots = self._extract_source_slots_from_row_cells(row_cells, field_config, table_header)
         if source_slots and source_slots.has_any_value():
             result.source_value_slots = source_slots
