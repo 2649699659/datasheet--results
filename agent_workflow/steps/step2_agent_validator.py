@@ -163,6 +163,7 @@ def _call_llm(prompt: str, output_path: Path | None = None) -> str:
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0,
         "top_p": 1,
+        "seed": 42,
     }
 
     req = urllib.request.Request(
