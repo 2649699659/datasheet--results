@@ -93,10 +93,19 @@ def resolve_consistency_value(p, field_id: str) -> float | None:
 
 
 def resolve_min(p, field_id: str) -> float | None:
-    """Resolve the min slot value for a field."""
+    """Resolve the min slot value for a field.
+    
+    For "values" tables (single value column), the value is in the 'value' slot.
+    For "min_typ_max" tables, the value is in the 'min' slot.
+    This function falls back to 'value' when 'min' is None.
+    """
     if p is None:
         return None
     v = getattr(p, "min", None)
+    if v is not None:
+        return float(v)
+    # Fallback to value for "values" tables where value is in the 'value' slot
+    v = getattr(p, "value", None)
     return float(v) if v is not None else None
 
 

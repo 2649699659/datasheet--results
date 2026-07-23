@@ -252,8 +252,9 @@ class ShadowFinalizer:
         """
         Extract Min/Typ/Max/Value slots from row_cells based on table header.
 
-        For "Values" tables (Symbol | Parameter | Values | '' | '' | Unit | Test Conditions):
+        For "Values" tables (Symbol | Parameter | Values | Unit):
         - Position 2 = value (single value column, NOT min)
+        - min/typ/max must be None
 
         For Min/Typ/Max tables (Symbol | Parameter | Min | Typ | Max | Unit | Test Conditions):
         - Position 2 = Min
@@ -263,12 +264,27 @@ class ShadowFinalizer:
         Returns:
             SourceValueSlots with values and evidence, or None if cannot determine
         """
-        if not row_cells or len(row_cells) < 5:
+        if not row_cells:
             return None
 
-        # Detect table schema from header
+        # Detect table schema from header FIRST, before length check
         schema = self._detect_table_schema(table_header or [])
+        schema_type = schema.get("type", "unknown")
         column_roles = schema.get("column_roles", {})
+
+        # Schema-aware length check
+        if schema_type == "values":
+            # Values table: Symbol | Parameter | Values | Unit (4 columns minimum)
+            min_required = 4
+        elif schema_type == "min_typ_max":
+            # Min/Typ/Max table: requires 5+ columns
+            min_required = 5
+        else:
+            # Unknown schema: require 5 columns as fallback
+            min_required = 5
+
+        if len(row_cells) < min_required:
+            return None
 
         # Extract values based on column roles
         min_val = None
@@ -276,13 +292,13 @@ class ShadowFinalizer:
         max_val = None
         value_val = None
 
-        if schema["type"] == "values":
+        if schema_type == "values":
             # Single value column table
             for i, val in enumerate(row_cells):
                 role = column_roles.get(i)
                 if role == 'value':
                     value_val = self._parse_numeric(val)
-        elif schema["type"] == "min_typ_max":
+        elif schema_type == "min_typ_max":
             # Min/Typ/Max table
             for i, val in enumerate(row_cells):
                 role = column_roles.get(i)
@@ -307,10 +323,10 @@ class ShadowFinalizer:
             typ=typ_val,
             max=max_val,
             value=value_val,
-            schema_type=schema["type"],
+            schema_type=schema_type,
             slot_evidence={
                 "method": "table_header_based",
-                "schema_type": schema["type"],
+                "schema_type": schema_type,
                 "column_roles": {str(k): v for k, v in column_roles.items()},
                 "row_cells_preview": row_cells[:6],
             }
@@ -604,6 +620,17 @@ class ShadowFinalizer:
                     # Source has max but Agent2 didn't put it in max slot
                     if result.value == source_slots.max or result.min == source_slots.max or result.typ == source_slots.max:
                         return True
+
+        # Check for "values" schema: Agent2 should put value in result.value, not typ/min/max
+        if source_slots.schema_type == "values":
+            if source_slots.value is not None:
+                # Agent2 should use result.value, not result.typ/result.min/result.max
+                if result.typ is not None and result.typ == source_slots.value and result.value != source_slots.value:
+                    return True
+                if result.min is not None and result.min == source_slots.value and result.value != source_slots.value:
+                    return True
+                if result.max is not None and result.max == source_slots.value and result.value != source_slots.value:
+                    return True
 
         # Legacy check for "values" tables or unknown schema - only check min->value case
         if source_slots.min is not None:
