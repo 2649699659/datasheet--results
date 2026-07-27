@@ -1,0 +1,56 @@
+You are reviewing an extracted datasheet parameter that needs verification.
+
+## Original Table Context
+
+The parameter was extracted from this table:
+
+```table
+{TABLE}
+```
+
+## Extracted Parameter
+
+```json
+{PARAMETER}
+```
+
+## Issues to Check
+
+1. **Missing unit**: Parameter has value but no unit
+2. **Missing value**: Parameter has unit but no value/min/typ/max
+3. **Low confidence**: AI confidence < 0.8
+4. **Format issue**: Value format unclear (e.g., "2-4" instead of separate min/max)
+
+## Review Task
+
+Review the extracted parameter and fix any issues. Focus on:
+- Confirm or correct the value/min/typ/max fields
+- Confirm or correct the unit
+- Confirm or correct the condition
+- Set confidence to your certainty level
+- Set needs_review=false if satisfied, true if still uncertain
+
+## Output Format
+
+Return ONLY valid JSON with the corrected parameter:
+
+```json
+{
+  "symbol": "...",
+  "name": "...",
+  "value": null,
+  "min": null,
+  "typ": 5.3,
+  "max": 6.7,
+  "unit": "mΩ",
+  "condition": "VGS=18V; ID=150A; TC=25°C",
+  "page": 2,
+  "table_index": 0,
+  "row_index": 1,
+  "source_text": "RDS(on) | On Resistance | - | 5.3 | 6.7 | mΩ | VGS=18V",
+  "confidence": 0.95,
+  "needs_review": false
+}
+```
+
+Return ONLY the JSON, no explanation:
