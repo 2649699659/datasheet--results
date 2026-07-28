@@ -25,6 +25,15 @@ from .heading_parser import (
     extract_condition_from_heading,
     has_temperature_condition,
 )
+from .parameter_inventory_models import (
+    ParameterRecord,
+    InventoryReport,
+    MappingStatus,
+    ExtractionStatus,
+)
+from .materialize_parameter_inventory import (
+    materialize_parameter_inventory,
+)
 
 __all__ = [
     # Models
@@ -44,4 +53,10 @@ __all__ = [
     "extract_raw_condition_from_cells",
     "extract_condition_from_heading",
     "has_temperature_condition",
+    # Parameter Inventory
+    "ParameterRecord",
+    "InventoryReport",
+    "MappingStatus",
+    "ExtractionStatus",
+    "materialize_parameter_inventory",
 ]

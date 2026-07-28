@@ -155,6 +155,30 @@ def run_workflow(
                     elapsed_seconds=time.time() - start_time,
                 )
 
+    # ── Step 0.6: Parameter Inventory (Phase 5) ─────────────────────────
+    inventory_records = []
+    inventory_report_data = {}
+    try:
+        from .steps.step0_6_parameter_inventory import run as step0_6_run
+        # Run Step 0.6 - generate parameter inventory from enriched payload
+        # Canonical mapping will be applied after Step 2.5 if available
+        inventory_records, inventory_report_obj = step0_6_run(
+            enriched_payload=enriched_payload,
+            artifact_paths=ap,
+            canonical_results=None,  # Will be updated after Step 2.5 if agent2 is available
+        )
+        inventory_report_data = inventory_report_obj.to_dict() if hasattr(inventory_report_obj, 'to_dict') else inventory_report_obj
+        logger.info(
+            f"Step 0.6: Parameter Inventory — "
+            f"Total: {inventory_report_data.get('parameter_rows_found', 0)} parameters, "
+            f"Needs Review: {inventory_report_data.get('unknown_parameter_like', 0)}"
+        )
+    except Exception as e:
+        logger.error(f"Step 0.6 failed: {e}")
+        warnings.append(f"Step 0.6 (Parameter Inventory) failed: {e}")
+        import traceback
+        traceback.print_exc()
+
     # ── Step 1: Agent 1 — Candidate Selection ───────────────────────────────
     try:
         from .steps.step1_agent_candidate import run as step1_run
@@ -231,10 +255,19 @@ def run_workflow(
                 f"changes={len(shadow_finalizer_result.get('diffs', []))}"
             )
 
-            # ── ENFORCE MODE: Apply finalized results to agent2 ──────────────────
-            if finalizer_mode == "enforce" and shadow_finalizer_result:
+            # ── APPLY FINALIZED RESULTS: Apply Shadow Finalizer results to agent2 ───
+            # In both shadow and enforce modes, apply finalized_results so the final output
+            # reflects the Shadow Finalizer corrections (e.g., manufacturer, module_type=ME3)
+            if finalizer_mode in ("enforce", "shadow") and shadow_finalizer_result:
                 from .contracts import Agent2Param
                 finalized = shadow_finalizer_result.get("finalized_results", {})
+
+                # ISSUE 3 FIX: Create lookup dict from source_row_id to source_text from inventory
+                source_row_id_to_text = {}
+                if inventory_records:
+                    for record in inventory_records:
+                        if record.source_row_id and record.source_text:
+                            source_row_id_to_text[record.source_row_id] = record.source_text
 
                 # Convert finalized_results dict to list of Agent2Param
                 new_final_params = []
@@ -311,6 +344,9 @@ def run_workflow(
                     # ISSUE 2 FIX: For module_type, extract from source_text if value is None
                     # but source_text contains a valid short code
                     final_source_text = result_dict.get("source_text")
+                    # ISSUE 3 FIX: If no source_text in result_dict, try to get from inventory
+                    if not final_source_text and source_row_id:
+                        final_source_text = source_row_id_to_text.get(source_row_id)
                     if field_id == "module_type" and final_value is None and final_source_text:
                         import re
                         # Try to extract short code from source_text like "Package Type ME3"
@@ -342,18 +378,97 @@ def run_workflow(
                         confidence=result_dict.get("confidence", 0.0),
                         reason=result_dict.get("reason", ""),
                         warnings=result_dict.get("warnings", []),
-                        missing_reason=result_dict.get("missing_reason"),
+                        missing_reason=result_dict.get("missing_reason") or ("not_in_source" if result_dict.get("status") == "missing" else None),
                     )
                     new_final_params.append(param)
 
                 # Replace agent2.final_params with the new finalized params
                 agent2.final_params = new_final_params
                 logger.info(f"Enforce mode: Applied {len(new_final_params)} finalized params to agent2")
+
+                # Re-save agent2.final_params after Shadow Finalizer updates
+                from .artifacts import save_agent2
+                save_agent2(agent2, ap.step2_final_params())
+                logger.info(f"Re-saved agent2.final_params to {ap.step2_final_params()}")
         except Exception as e:
             logger.error(f"Shadow Finalizer failed: {e}")
             warnings.append(f"Shadow Finalizer failed: {e}")
             import traceback
             traceback.print_exc()
+
+    # ── Inject Source Text from Inventory ────────────────────────────────────
+    # After Shadow Finalizer has finalized agent2 results, inject source_text
+    # from inventory records using (page, table, row) coordinates
+    if inventory_records and agent2 is not None and hasattr(agent2, 'final_params'):
+        try:
+            # Build lookup: (page_number, table_index, row_index) -> source_text
+            coord_to_text = {}
+            for record in inventory_records:
+                if record.source_text:
+                    key = (record.page_number, record.table_index, record.row_index)
+                    coord_to_text[key] = record.source_text
+
+            # Inject source_text into agent2.final_params
+            injected_count = 0
+            for param in agent2.final_params:
+                if isinstance(param, dict):
+                    # Dict-based param
+                    if param.get('source_text') is None and param.get('source_page') is not None:
+                        key = (param.get('source_page'), param.get('table_index'), param.get('row_index'))
+                        if key in coord_to_text:
+                            param['source_text'] = coord_to_text[key]
+                            injected_count += 1
+                elif hasattr(param, 'source_text') and hasattr(param, 'source_page'):
+                    # Object-based param
+                    if param.source_text is None and param.source_page is not None:
+                        key = (param.source_page, param.table_index, param.row_index)
+                        if key in coord_to_text:
+                            param.source_text = coord_to_text[key]
+                            injected_count += 1
+
+            if injected_count > 0:
+                logger.info(f"Injected source_text into {injected_count} params from inventory")
+                # Re-save after injection
+                from .artifacts import save_agent2
+                save_agent2(agent2, ap.step2_final_params())
+                logger.info(f"Re-saved agent2.final_params with source_text")
+        except Exception as e:
+            logger.warning(f"Failed to inject source_text: {e}")
+
+    # ── Apply Canonical Mapping to Inventory (Phase 5) ─────────────────────
+    # After Shadow Finalizer has finalized agent2 results, apply canonical mapping to inventory
+    if inventory_records and agent2 is not None:
+        try:
+            from .enrichment.parameter_inventory_models import ParameterRecord, MappingStatus
+            from .artifacts import save_parameter_inventory
+
+            # Build lookup from agent2.final_params: source_row_id -> field_id
+            row_id_to_field = {}
+            for param in agent2.final_params:
+                if hasattr(param, 'source_page') and param.source_page is not None:
+                    # Construct row_id from source coordinates
+                    row_id = f"p{param.source_page}_t{param.table_index}_r{param.row_index}"
+                    row_id_to_field[row_id] = param.field_id
+
+            # Apply mapping to inventory records
+            mapped_count = 0
+            for record in inventory_records:
+                if record.row_id in row_id_to_field:
+                    record.canonical_field_id = row_id_to_field[record.row_id]
+                    record.mapping_status = MappingStatus.MAPPED
+                    record.source_row_id = record.row_id
+                    mapped_count += 1
+
+            # Re-save inventory with canonical mapping
+            if inventory_records:
+                save_parameter_inventory(
+                    inventory_records,
+                    ap.output_dir / ap.step0_6_parameter_inventory(),
+                )
+                logger.info(f"Phase 5: Applied canonical mapping to {mapped_count} inventory records")
+        except Exception as e:
+            logger.error(f"Phase 5 canonical mapping failed: {e}")
+            warnings.append(f"Phase 5 canonical mapping failed: {e}")
 
     # ── Step 3: Agent 3 — Consistency Check ─────────────────────────────────
     agent3 = None
@@ -370,7 +485,7 @@ def run_workflow(
     if agent2 is not None and agent3 is not None:
         try:
             from .steps.step4_write_excel import run as step4_run
-            excel_path = str(step4_run(agent2, agent3, ap))
+            excel_path = str(step4_run(agent2, agent3, ap, inventory_records=inventory_records))
         except Exception as e:
             logger.error(f"Step 4 failed: {e}")
             warnings.append(f"Step 4 (Excel) failed: {e}")

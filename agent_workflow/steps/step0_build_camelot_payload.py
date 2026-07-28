@@ -96,6 +96,97 @@ def _extract_tables_from_camelot(
     return all_tables
 
 
+def _compute_iou(bbox1: tuple, bbox2: tuple) -> float:
+    """
+    Compute IoU (Intersection over Union) of two bounding boxes.
+
+    Bbox format: (x1, y1, x2, y2) where (0,0) is top-left.
+    Camelot uses (0,0) as bottom-left, but we convert to top-left for comparison.
+    """
+    if bbox1 is None or bbox2 is None:
+        return 0.0
+
+    # Unpack bboxes
+    x1_1, y1_1, x2_1, y2_1 = bbox1
+    x1_2, y1_2, x2_2, y2_2 = bbox2
+
+    # Compute intersection
+    xi1 = max(x1_1, x1_2)
+    yi1 = max(y1_1, y1_2)
+    xi2 = min(x2_1, x2_2)
+    yi2 = min(y2_1, y2_2)
+
+    # No intersection
+    if xi1 >= xi2 or yi1 >= yi2:
+        return 0.0
+
+    intersection = (xi2 - xi1) * (yi2 - yi1)
+
+    # Compute union
+    area1 = (x2_1 - x1_1) * (y2_1 - y1_1)
+    area2 = (x2_2 - x1_2) * (y2_2 - y1_2)
+    union = area1 + area2 - intersection
+
+    if union <= 0:
+        return 0.0
+
+    return intersection / union
+
+
+def _deduplicate_tables(tables: list[CamelotTable], iou_threshold: float = 0.5) -> list[CamelotTable]:
+    """
+    Remove duplicate tables based on IoU overlap.
+
+    For tables on the same page with IoU > threshold, keep the higher-scoring one.
+    This deduplicates tables extracted by both lattice and stream flavors.
+    """
+    if not tables:
+        return []
+
+    # Group by page
+    from collections import defaultdict
+    by_page: dict[int, list[CamelotTable]] = defaultdict(list)
+    for table in tables:
+        by_page[table.page_number].append(table)
+
+    # Deduplicate each page
+    deduplicated: list[CamelotTable] = []
+
+    for page_num, page_tables in by_page.items():
+        # Sort by score descending
+        page_tables.sort(key=lambda t: t.score, reverse=True)
+
+        # Track which tables to remove
+        to_remove: set[int] = set()
+
+        for i in range(len(page_tables)):
+            if i in to_remove:
+                continue
+
+            for j in range(i + 1, len(page_tables)):
+                if j in to_remove:
+                    continue
+
+                # Check if tables overlap significantly
+                iou = _compute_iou(page_tables[i].table_bbox, page_tables[j].table_bbox)
+
+                if iou >= iou_threshold:
+                    # Tables overlap significantly - remove lower scoring one
+                    to_remove.add(j)
+                    logger.debug(
+                        f"Removing duplicate table: page={page_num}, "
+                        f"table_j (score={page_tables[j].score}) overlaps "
+                        f"table_i (score={page_tables[i].score}) with IoU={iou:.2f}"
+                    )
+
+        # Keep tables that weren't removed
+        for i, table in enumerate(page_tables):
+            if i not in to_remove:
+                deduplicated.append(table)
+
+    return deduplicated
+
+
 def _score_table(rows: list[CamelotTableRow], accuracy: float | None, whitespace: float | None) -> float:
     """Score a table for quality (0-100)."""
     if not rows:
@@ -160,6 +251,12 @@ def run(pdf_path: str, artifact_paths: ArtifactPaths) -> CamelotPayload:
 
     # Extract tables
     all_tables = _extract_tables_from_camelot(pdf_path, pages="all")
+
+    # Deduplicate tables: remove overlapping tables on same page
+    original_count = len(all_tables)
+    all_tables = _deduplicate_tables(all_tables, iou_threshold=0.5)
+    if original_count != len(all_tables):
+        logger.info(f"Deduplication: {original_count} → {len(all_tables)} tables")
 
     # Group by page
     page_map: dict[int, list[CamelotTable]] = {}

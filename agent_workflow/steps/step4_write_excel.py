@@ -9,6 +9,7 @@ Output: Excel file (.xlsx)
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from ..contracts import Agent2Result, Agent3Result, FieldStatus
 from ..artifacts import ArtifactPaths
@@ -20,6 +21,7 @@ def run(
     agent2_result: Agent2Result,
     agent3_result: Agent3Result,
     artifact_paths: ArtifactPaths,
+    inventory_records: list[Any] | None = None,
 ) -> Path:
     """
     Write Excel report from Agent 2/3 results.
@@ -28,6 +30,7 @@ def run(
         agent2_result: Validated params from Step 2
         agent3_result: Consistency report from Step 3
         artifact_paths: Artifact paths manager
+        inventory_records: Optional list of ParameterRecord for Phase 5
 
     Returns:
         Path to generated Excel file
@@ -42,6 +45,7 @@ def run(
         agent2=agent2_result,
         agent3=agent3_result,
         output_path=str(excel_path),
+        inventory_records=inventory_records,
     )
 
     logger.info(f"Step 4: Excel saved to {excel_path}")

@@ -59,11 +59,40 @@ _SECTION_TITLE_PATTERNS = [
     re.compile(r"unless\s+otherwise\s+specified", re.IGNORECASE),
 ]
 
+# Footer patterns — indicate a footer row, not a parameter row
+_FOOTER_PATTERNS = [
+    re.compile(r"\bproduct\s+data\s+sheet\b", re.IGNORECASE),
+    re.compile(r"www\.astsic\.com", re.IGNORECASE),
+    re.compile(r"\bAST\s*Technology\b", re.IGNORECASE),
+    re.compile(r"\d+/\d+/\d+"),  # dates like 01/15/2024
+]
+
+# Axis label patterns — indicate a graph axis label, not a parameter row
+# More flexible patterns to match Y-axis labels like "Drain-Source Current, IDS(A)"
+_AXIS_LABEL_PATTERNS = [
+    re.compile(r"\bCapacitance\b", re.IGNORECASE),
+    re.compile(r"\bInductance\b", re.IGNORECASE),
+    re.compile(r"\bResistance\b", re.IGNORECASE),
+    re.compile(r"\bVoltage\b.*\(", re.IGNORECASE),   # Voltage followed by (
+    re.compile(r"\bCurrent\b.*\(", re.IGNORECASE),    # Current followed by (
+    re.compile(r"\bTime\b.*\(", re.IGNORECASE),
+    re.compile(r"\bFrequency\b.*\(", re.IGNORECASE),
+    re.compile(r"\bTemperature\b", re.IGNORECASE),
+    re.compile(r"\bPower\b.*\(", re.IGNORECASE),
+    re.compile(r"\bEnergy\b.*\(", re.IGNORECASE),
+    re.compile(r"\bSwitching\s+Loss\b", re.IGNORECASE),  # Switching Loss (mJ)
+]
+
+# Curve data detection: powers of 10 that appear in datasheet graphs
+_CURVE_POWERS_OF_10 = {10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000}
+
 # Parameter row heuristics: must have a non-empty first cell (symbol) AND
 # at least one value-like cell (numeric or dash)
 _VALUE_PATTERNS = [
-    re.compile(r"^-?[\d.\s]+$"),          # pure numbers / dashes
-    re.compile(r"^\s*\d+\.?\d*\s*[mμpnkMGT]?[VAAFΩHNOCS]+.*$", re.IGNORECASE),  # number + unit
+    re.compile(r"^/?-?[\d.]+/?$"),          # pure numbers / dashes, including negative ranges like -10/+22
+    re.compile(r"^-?[\d.\s]+$"),             # pure numbers / dashes
+    re.compile(r"^\s*[+-]?\d+\.?\d*\s*(to|&|and|/)\s*[+-]?\d+\.?\d*$", re.IGNORECASE),  # range with to/&/and/
+    re.compile(r"^\s*[+-]?\d+\.?\d*\s*[mμpnkMGT]?[VAAFΩHNOCS]+.*$", re.IGNORECASE),  # number + unit
 ]
 
 # Separator patterns: rows that are all dashes, equals, or whitespace
@@ -245,6 +274,9 @@ class RowClassifier:
         - First cell (symbol column) is non-empty
         - First cell is NOT a Camelot broken char
         - At least one cell contains a value-like pattern
+        - NOT a footer row
+        - NOT a curve data row (powers of 10)
+        - NOT an axis label row
         """
         if not cells:
             return False
@@ -253,11 +285,130 @@ class RowClassifier:
             return False
         if self._is_camelot_broken_char(symbol_cell):
             return False
+
+        # Exclude footer rows
+        if self._is_footer(cells):
+            return False
+
+        # Exclude curve data rows (powers of 10)
+        if self._is_curve_data(cells):
+            return False
+
+        # Exclude axis label rows
+        if self._is_axis_label(cells):
+            return False
+
         non_empty = [c.strip() for c in cells if c.strip()]
         if len(non_empty) < 2:
             return False
         has_value = any(self._looks_like_value(c) for c in cells)
         return has_value
+
+    def _is_footer(self, cells: list[str]) -> bool:
+        """Check if row is a footer (e.g., 'Product Data Sheet')."""
+        for cell in cells:
+            cell_lower = cell.lower()
+            for pattern in _FOOTER_PATTERNS:
+                if pattern.search(cell_lower):
+                    return True
+        return False
+
+    def _is_curve_data(self, cells: list[str]) -> bool:
+        """
+        Check if row is curve data (graph coordinates).
+
+        Detects rows where the first cell is a power of 10 (Y-axis tick values)
+        AND there are other numeric values in the row.
+        """
+        if not cells:
+            return False
+
+        non_empty_cells = [c.strip() for c in cells if c.strip()]
+
+        # Extract all numeric values from cells
+        numeric_values = []
+        for cell in non_empty_cells:
+            cell_clean = cell.replace(",", "")
+            if cell_clean.isdigit():
+                numeric_values.append(int(cell_clean))
+
+        # If the first cell is a power of 10, it's likely curve data
+        first_cell = cells[0].strip().replace(",", "")
+        if first_cell.isdigit():
+            first_val = int(first_cell)
+            if first_val in _CURVE_POWERS_OF_10:
+                # Check if there are other numeric values in the row
+                if len(numeric_values) >= 2:
+                    return True
+
+        return False
+
+    def _is_axis_label(self, cells: list[str]) -> bool:
+        """
+        Check if row is an axis label row from a graph.
+
+        Detects rows where the first cell looks like a Y-axis label AND there are
+        other axis labels OR small numeric values OR small values with units in the row.
+
+        Y-axis labels have 2+ words before the parenthesis:
+        - 'Drain-Source Current, IDS(A)' - YES (3 words: Drain-Source, Current, IDS)
+        - 'RDS(on)' - NO (1 word - this is a parameter)
+        - 'VGS' - NO (1 word - this is a parameter)
+        """
+        if not cells:
+            return False
+
+        first_cell = cells[0].strip()
+
+        # Check if first cell contains 2+ words before the opening parenthesis
+        # e.g., 'Drain-Source Current, IDS(A)' has 'Drain-Source', 'Current', 'IDS' before '('
+        paren_match = re.search(r'^(.+?)\s*\(', first_cell)
+        if paren_match:
+            before_paren = paren_match.group(1)
+            word_count = len(before_paren.split())
+
+            # If 2+ words before parenthesis AND contains physical quantity keywords
+            if word_count >= 2:
+                if re.search(r'\b(Current|Voltage|Resistance|Capacitance|Inductance|Power|Energy|Temperature|Frequency|Force|Torque)\b', before_paren, re.IGNORECASE):
+                    # Count how many axis-like patterns are in the row
+                    axis_like_count = 0
+                    for cell in cells:
+                        for pattern in _AXIS_LABEL_PATTERNS:
+                            if pattern.search(cell):
+                                axis_like_count += 1
+
+                    # If there are 2+ axis-like patterns, it's likely an axis label row
+                    if axis_like_count >= 2:
+                        return True
+
+                    # Check for Y-axis values (powers of 10) paired with X-axis values (10-100)
+                    numeric_values = []
+                    small_values_with_units = []  # e.g., '100μs', '50mA', etc.
+                    for cell in cells:
+                        cell_clean = cell.strip().replace(",", "")
+                        if cell_clean.isdigit():
+                            numeric_values.append(int(cell_clean))
+                        # Check for small values with units (like 100μs, 50mA)
+                        if re.match(r'^\d+\s*[mμpnk]?[A-Z]+$', cell_clean, re.IGNORECASE):
+                            num_part = re.match(r'^(\d+)', cell_clean)
+                            if num_part:
+                                val = int(num_part.group(1))
+                                small_values_with_units.append(val)
+
+                    if any(v in _CURVE_POWERS_OF_10 for v in numeric_values):
+                        if any(10 <= v <= 100 for v in numeric_values + small_values_with_units):
+                            return True
+
+                    # Also check if first cell is an axis label AND there are other non-empty cells with values
+                    # This catches cases like ['Drain-Source Current, IDS(A)', '100μs']
+                    non_first_cells = [c.strip() for c in cells[1:] if c.strip()]
+                    if len(non_first_cells) >= 1:
+                        # Check if any non-first cell looks like a value (numeric or value+unit)
+                        for cell in non_first_cells:
+                            if self._looks_like_value(cell):
+                                return True
+
+        return False
 
     def _looks_like_value(self, cell: str) -> bool:
         """Check if a cell looks like a numeric value or value+unit."""

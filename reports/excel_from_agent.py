@@ -267,6 +267,155 @@ def _write_field_detail(ws, agent2: Agent2Result):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Sheet 4: All Parameters (Phase 5)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _write_all_parameters(ws, inventory_records: list):
+    """Write the All Parameters sheet from inventory records."""
+    ws.title = "All Parameters"
+
+    # Headers
+    headers = [
+        "Page", "Table", "Row", "Section", "Symbol", "Parameter",
+        "Value", "Min", "Typ", "Max", "Unit", "Condition",
+        "Schema Type", "Mapping Status", "Canonical Field ID",
+        "Extraction Status", "Source Text", "Quality Flags",
+    ]
+    widths = [8, 8, 8, 25, 15, 30, 12, 10, 10, 10, 10, 35, 15, 15, 20, 18, 50, 30]
+
+    for col, (h, w) in enumerate(zip(headers, widths), 1):
+        _header_cell(ws, 1, col, h, w)
+
+    ws.row_dimensions[1].height = 30
+
+    for ri, record in enumerate(inventory_records, 2):
+        ws.row_dimensions[ri].height = 22
+        _data_cell(ws, ri, 1, record.page_number)
+        _data_cell(ws, ri, 2, record.table_index)
+        _data_cell(ws, ri, 3, record.row_index)
+        _data_cell(ws, ri, 4, record.section_title or "")
+        _data_cell(ws, ri, 5, record.symbol or "")
+        _data_cell(ws, ri, 6, record.parameter_name or "")
+        _data_cell(ws, ri, 7, record.value)
+        _data_cell(ws, ri, 8, record.min)
+        _data_cell(ws, ri, 9, record.typ)
+        _data_cell(ws, ri, 10, record.max)
+        _data_cell(ws, ri, 11, record.unit or "")
+        _data_cell(ws, ri, 12, _normalize_condition(record.resolved_condition or "")[:80])
+        _data_cell(ws, ri, 13, record.source_schema_type or "")
+        _data_cell(ws, ri, 14, record.mapping_status.value if hasattr(record.mapping_status, 'value') else str(record.mapping_status))
+        _data_cell(ws, ri, 15, record.canonical_field_id or "")
+        _data_cell(ws, ri, 16, record.extraction_status.value if hasattr(record.extraction_status, 'value') else str(record.extraction_status))
+        _data_cell(ws, ri, 17, _normalize_condition(record.source_text or "")[:200])
+        _data_cell(ws, ri, 18, "; ".join(record.quality_flags) if record.quality_flags else "")
+
+    # Summary
+    summary_row = len(inventory_records) + 3
+    ws.cell(row=summary_row, column=1, value="Summary").font = Font(bold=True)
+    ws.cell(row=summary_row + 1, column=1, value=f"Total Parameters: {len(inventory_records)}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sheet 5: Unmapped Parameters (Phase 5)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _write_unmapped_parameters(ws, inventory_records: list):
+    """Write the Unmapped Parameters sheet."""
+    ws.title = "Unmapped Parameters"
+
+    # Filter to only unmapped records
+    unmapped = [r for r in inventory_records if (
+        (hasattr(r.mapping_status, 'value') and r.mapping_status.value == 'unmapped') or
+        (isinstance(r.mapping_status, str) and r.mapping_status == 'unmapped')
+    )]
+
+    # Headers
+    headers = [
+        "Page", "Table", "Row", "Section", "Symbol", "Parameter",
+        "Value", "Min", "Typ", "Max", "Unit", "Condition",
+        "Schema Type", "Source Text",
+    ]
+    widths = [8, 8, 8, 25, 15, 30, 12, 10, 10, 10, 10, 35, 15, 50]
+
+    for col, (h, w) in enumerate(zip(headers, widths), 1):
+        _header_cell(ws, 1, col, h, w)
+
+    ws.row_dimensions[1].height = 30
+
+    for ri, record in enumerate(unmapped, 2):
+        ws.row_dimensions[ri].height = 22
+        _data_cell(ws, ri, 1, record.page_number)
+        _data_cell(ws, ri, 2, record.table_index)
+        _data_cell(ws, ri, 3, record.row_index)
+        _data_cell(ws, ri, 4, record.section_title or "")
+        _data_cell(ws, ri, 5, record.symbol or "")
+        _data_cell(ws, ri, 6, record.parameter_name or "")
+        _data_cell(ws, ri, 7, record.value)
+        _data_cell(ws, ri, 8, record.min)
+        _data_cell(ws, ri, 9, record.typ)
+        _data_cell(ws, ri, 10, record.max)
+        _data_cell(ws, ri, 11, record.unit or "")
+        _data_cell(ws, ri, 12, _normalize_condition(record.resolved_condition or "")[:80])
+        _data_cell(ws, ri, 13, record.source_schema_type or "")
+        _data_cell(ws, ri, 14, _normalize_condition(record.source_text or "")[:200])
+
+    # Summary
+    summary_row = len(unmapped) + 3
+    ws.cell(row=summary_row, column=1, value="Summary").font = Font(bold=True)
+    ws.cell(row=summary_row + 1, column=1, value=f"Unmapped Parameters: {len(unmapped)}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sheet 6: Inventory Needs Review (Phase 5)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _write_needs_review(ws, inventory_records: list):
+    """Write the Inventory Needs Review sheet."""
+    ws.title = "Needs Review"
+
+    # Filter to needs_review records (UNKNOWN but looks like parameter)
+    needs_review = [r for r in inventory_records if (
+        (hasattr(r.mapping_status, 'value') and r.mapping_status.value == 'needs_review') or
+        (isinstance(r.mapping_status, str) and r.mapping_status == 'needs_review')
+    )]
+
+    # Headers
+    headers = [
+        "Page", "Table", "Row", "Section", "Symbol", "Parameter",
+        "Value", "Min", "Typ", "Max", "Unit", "Condition",
+        "Schema Type", "Source Text",
+    ]
+    widths = [8, 8, 8, 25, 15, 30, 12, 10, 10, 10, 10, 35, 15, 50]
+
+    for col, (h, w) in enumerate(zip(headers, widths), 1):
+        _header_cell(ws, 1, col, h, w)
+
+    ws.row_dimensions[1].height = 30
+
+    for ri, record in enumerate(needs_review, 2):
+        ws.row_dimensions[ri].height = 22
+        _data_cell(ws, ri, 1, record.page_number)
+        _data_cell(ws, ri, 2, record.table_index)
+        _data_cell(ws, ri, 3, record.row_index)
+        _data_cell(ws, ri, 4, record.section_title or "")
+        _data_cell(ws, ri, 5, record.symbol or "")
+        _data_cell(ws, ri, 6, record.parameter_name or "")
+        _data_cell(ws, ri, 7, record.value)
+        _data_cell(ws, ri, 8, record.min)
+        _data_cell(ws, ri, 9, record.typ)
+        _data_cell(ws, ri, 10, record.max)
+        _data_cell(ws, ri, 11, record.unit or "")
+        _data_cell(ws, ri, 12, _normalize_condition(record.resolved_condition or "")[:80])
+        _data_cell(ws, ri, 13, record.source_schema_type or "")
+        _data_cell(ws, ri, 14, _normalize_condition(record.source_text or "")[:200])
+
+    # Summary
+    summary_row = len(needs_review) + 3
+    ws.cell(row=summary_row, column=1, value="Summary").font = Font(bold=True)
+    ws.cell(row=summary_row + 1, column=1, value=f"Needs Review Parameters: {len(needs_review)}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main entry point
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -274,6 +423,7 @@ def write_excel_from_agent(
     agent2: Agent2Result,
     agent3: Agent3Result,
     output_path: str,
+    inventory_records: list | None = None,
 ) -> None:
     """
     Write Excel report from Agent 2/3 results.
@@ -282,6 +432,7 @@ def write_excel_from_agent(
         agent2: Agent2Result from Step 2
         agent3: Agent3Result from Step 3
         output_path: Path to output .xlsx file
+        inventory_records: Optional list of ParameterRecord for Phase 5
     """
     wb = openpyxl.Workbook()
     wb.remove(wb.active)  # Remove default sheet
@@ -289,5 +440,11 @@ def write_excel_from_agent(
     _write_final_params(wb.create_sheet("Final Params"), agent2)
     _write_consistency_report(wb.create_sheet("Consistency"), agent3)
     _write_field_detail(wb.create_sheet("Field Detail"), agent2)
+
+    # Phase 5: Add Parameter Inventory sheets
+    if inventory_records:
+        _write_all_parameters(wb.create_sheet("All Parameters"), inventory_records)
+        _write_unmapped_parameters(wb.create_sheet("Unmapped"), inventory_records)
+        _write_needs_review(wb.create_sheet("Needs Review"), inventory_records)
 
     wb.save(output_path)

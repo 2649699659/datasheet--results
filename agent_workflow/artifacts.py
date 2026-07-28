@@ -64,6 +64,14 @@ class ArtifactPaths:
     def step0_5_report(self) -> Path:
         return self.artifacts_dir / "step0_5_report.json"
 
+    # Step 0.6: Parameter Inventory
+    def step0_6_parameter_inventory(self) -> Path:
+        return self.artifacts_dir / "step0_6_parameter_inventory.json"
+
+    # Step 0.6: Inventory Report
+    def step0_6_inventory_report(self) -> Path:
+        return self.artifacts_dir / "step0_6_inventory_report.json"
+
     # Step 1: Agent 1 candidates
     def step1_candidates(self) -> Path:
         return self.artifacts_dir / "step1_agent1_candidates.json"
@@ -136,6 +144,24 @@ def load_step0_5_report(path: Path) -> dict:
     """Load Step 0.5 enrichment report from JSON."""
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Step 0.6: Parameter Inventory
+# ─────────────────────────────────────────────────────────────────────────────
+
+def save_parameter_inventory(records: list, path: Path) -> None:
+    """Save Parameter Inventory as JSON."""
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump([r.to_dict() if hasattr(r, "to_dict") else r for r in records], f, ensure_ascii=False, indent=2)
+
+
+def load_parameter_inventory(path: Path) -> list:
+    """Load Parameter Inventory from JSON."""
+    from .enrichment.parameter_inventory_models import ParameterRecord
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+        return [ParameterRecord.from_dict(d) for d in data]
 
 
 def save_agent1(result: Agent1Result, path: Path) -> None:
