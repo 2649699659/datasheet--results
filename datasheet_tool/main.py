@@ -29,6 +29,7 @@ load_dotenv()
 from datasheet_tool.pdf_extractor import extract as extract_tables, RawDocument
 from datasheet_tool.table_agent import extract as extract_parameters
 from datasheet_tool.reviewer import review
+from datasheet_tool.post_processor import post_process
 from datasheet_tool.excel_exporter import export_from_dict
 from datasheet_tool.models import ExtractionResult
 
@@ -81,6 +82,12 @@ def run(pdf_path: str, output_dir: str, skip_review: bool = False, model: str = 
     logger.info("Step 2: Extracting parameters with AI Agent...")
     parameters, doc_info = extract_parameters(doc, model=model)
     logger.info(f"  Extracted {len(parameters)} parameters")
+
+    # Step 2.5: Post-process fixes
+    logger.info("Step 2.5: Post-processing fixes...")
+    parameters = post_process(parameters)
+    doc_info.needs_review_count = sum(1 for p in parameters if p.should_review())
+    logger.info(f"  After post-processing: {len(parameters)} parameters, {doc_info.needs_review_count} need review")
 
     # Step 3: Review low-confidence parameters
     if skip_review:
